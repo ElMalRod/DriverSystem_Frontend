@@ -3,6 +3,10 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+    --color-light: #E8E8E8;
+    --color-accent: #F05454;
+    --color-primary: #30475E;
+    --color-dark: #222831;
 }
 
 @theme inline {
@@ -15,7 +19,7 @@
 @media (prefers-color-scheme: dark) {
   :root {
     --background: #0a0a0a;
-    --foreground: #ededed;
+    --foreground: #868686;
   }
 }
 
