@@ -3,7 +3,7 @@ import { NextResponse } from "next/server"
 const API_HOST = process.env.NEXT_PUBLIC_API_HOST || "http://localhost:8080"
 
 export async function GET(req) {
-  const apiRes = await fetch(`${API_HOST}/api/vehicle/makes/`, {
+  const apiRes = await fetch(`${API_HOST}/api/vehicle/model/`, {
     method: "GET",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
@@ -18,7 +18,7 @@ export async function GET(req) {
 
 export async function POST(req) {
   const body = await req.json()
-  const apiRes = await fetch(`${API_HOST}/api/vehicle/makes/`, {
+  const apiRes = await fetch(`${API_HOST}/api/vehicle/model/`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
@@ -34,32 +34,11 @@ export async function POST(req) {
 
 export async function PUT(req) {
   const body = await req.json()
-  const apiRes = await fetch(`${API_HOST}/api/vehicle/makes/`, {
+  const apiRes = await fetch(`${API_HOST}/api/vehicle/model/`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
     body: JSON.stringify(body),
-  })
-
-  const data = await apiRes.json()
-  if (!apiRes.ok) {
-    return NextResponse.json(data, { status: apiRes.status })
-  }
-  return NextResponse.json(data)
-}
-
-export async function DELETE(req) {
-  const { searchParams } = new URL(req.url)
-  const id = searchParams.get("id")
-
-  if (!id) {
-    return NextResponse.json({ error: "ID is required" }, { status: 400 })
-  }
-
-  const apiRes = await fetch(`${API_HOST}/api/vehicle/makes/?id=${id}`, {
-    method: "DELETE",
-    headers: { "Content-Type": "application/json" },
-    credentials: "include",
   })
 
   const data = await apiRes.json()

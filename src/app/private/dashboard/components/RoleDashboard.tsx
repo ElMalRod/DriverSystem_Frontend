@@ -18,6 +18,7 @@ import {
   FaSignOutAlt,
   FaUserCircle,
   FaCar,
+  FaUser
 } from "react-icons/fa"
 
 type Props = { children: React.ReactNode }
@@ -61,6 +62,7 @@ export default function RoleDashboard({ children }: Props) {
   const menuByRole: Record<Rol, MenuItem[]> = {
     ADMIN: [
       { label: "Dashboard", href: "/private/admin",       Icon: FaTachometerAlt },
+      { label: "Usuarios",  href: "/private/users",       Icon: FaUser },
       { label: "Vehículos", href: "/private/vehicles",    Icon: FaCar },
       { label: "Reportes",  href: "/private/reports",     Icon: FaChartBar },
       { label: "Inventario",href: "/private/inventory",   Icon: FaBoxes },
