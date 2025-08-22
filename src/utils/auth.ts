@@ -1,19 +1,19 @@
-export function homeByRole(role: string | undefined) {
-  if (!role) return "/private/dashboard";
-  
-  switch (role.toUpperCase()) {
+import type { Rol } from "@/types/auth"
+
+export function homeByRole(role: Rol): string {
+  switch (role) {
     case "ADMIN":
-      return "/private/admin";
-    case "CUSTOMER":
-      return "/private/customers";
+      return "/private/admin"
     case "EMPLOYEE":
-      return "/private/employee";
+      return "/private/work-orders"
     case "SPECIALIST":
-      return "/private/specialist";
+      return "/private/work-orders"
+    case "CUSTOMER":
+      return "/private/customers"
     case "SUPPLIER":
-      return "/private/supplier";
+      return "/private/supplier"
     default:
-      return "/private/dashboard";
+      return "/private/dashboard"
   }
 }
 

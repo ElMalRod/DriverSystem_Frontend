@@ -25,6 +25,14 @@ export function LoginForm() {
         setShowMfa(true)
         setPendingRole(res.role)
       } else if (res.role) {
+
+        sessionStorage.setItem('user', JSON.stringify({
+          id: res.userId,
+          email,
+          rol: res.role,
+          name: res.name || email.split('@')[0]
+        }));
+        
         setShowMfa(false)
         setMfaCode('')
         router.replace(homeByRole(res.role))
@@ -42,6 +50,16 @@ export function LoginForm() {
     try {
       const res = await verifySessionCode(mfaCode)
       if (res.codeHttp === 202 && res.role) {
+
+        const form = document.querySelector('form') as HTMLFormElement;
+        const email = (form?.elements.namedItem("email") as HTMLInputElement)?.value || '';
+        sessionStorage.setItem('user', JSON.stringify({
+          id: res.userId,
+          email,
+          rol: res.role,
+          name: res.name || email.split('@')[0]
+        }));
+        
         setShowMfa(false)
         setMfaCode('')
         router.replace(homeByRole(res.role))

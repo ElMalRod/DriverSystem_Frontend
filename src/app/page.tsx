@@ -37,6 +37,7 @@ export default function LoginPage() {
         console.log("Redirecting to:", targetRoute);
 
         sessionStorage.setItem('user', JSON.stringify({
+          id: r.userId, // ← Agregar userId
           email,
           rol: r.role,
           name: r.name || email.split('@')[0]
@@ -64,11 +65,10 @@ export default function LoginPage() {
     try {
       const r = await verifySessionCode(mfaCode);
       if (r?.codeHttp === 202 && r?.role) {
-
-        // ✅ GUARDAR USUARIO EN SESSION STORAGE
         const form = document.querySelector('form[autocomplete="off"]') as HTMLFormElement;
         const email = (form?.elements.namedItem("email") as HTMLInputElement)?.value || '';
         sessionStorage.setItem('user', JSON.stringify({
+          id: r.userId, // ← Agregar userId para MFA también
           email,
           rol: r.role,
           name: r.name || email.split('@')[0]

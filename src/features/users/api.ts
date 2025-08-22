@@ -224,3 +224,8 @@ export async function getUsersWithRoles(): Promise<UserWithRoles[]> {
     throw new Error("Error al obtener usuarios con roles");
   }
 }
+
+export async function getClients(): Promise<User[]> {
+  const users = await getUsers()
+  return users.filter(user => user.roleName === "Cliente")
+}

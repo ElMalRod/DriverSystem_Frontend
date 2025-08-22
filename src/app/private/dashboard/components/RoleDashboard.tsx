@@ -18,7 +18,8 @@ import {
   FaSignOutAlt,
   FaUserCircle,
   FaCar,
-  FaUser
+  FaUser,
+  FaClipboard
 } from "react-icons/fa"
 
 type Props = { children: React.ReactNode }
@@ -61,12 +62,13 @@ export default function RoleDashboard({ children }: Props) {
 
   const menuByRole: Record<Rol, MenuItem[]> = {
     ADMIN: [
-      { label: "Dashboard", href: "/private/admin",       Icon: FaTachometerAlt },
-      { label: "Usuarios",  href: "/private/users",       Icon: FaUser },
-      { label: "Vehículos", href: "/private/vehicles",    Icon: FaCar },
-      { label: "Reportes",  href: "/private/reports",     Icon: FaChartBar },
-      { label: "Inventario",href: "/private/inventory",   Icon: FaBoxes },
-      { label: "Órdenes",   href: "/private/work-orders", Icon: FaClipboardList },
+      { label: "Dashboard", href: "/private/admin",         Icon: FaTachometerAlt },
+      { label: "Usuarios",  href: "/private/users",         Icon: FaUser },
+      { label: "Vehículos", href: "/private/vehicles",      Icon: FaCar },
+      { label: "Visitas",   href: "/private/vehicle-visits", Icon: FaClipboard },
+      { label: "Reportes",  href: "/private/reports",       Icon: FaChartBar },
+      { label: "Inventario",href: "/private/inventory",     Icon: FaBoxes },
+      { label: "Órdenes",   href: "/private/work-orders",   Icon: FaClipboardList },
     ],
     EMPLOYEE: [
       { label: "Trabajos asignados",href: "/private/work-orders", Icon: FaClipboardCheck },

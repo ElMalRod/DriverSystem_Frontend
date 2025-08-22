@@ -7,4 +7,3 @@ export default function PrivateLayout({
 }) {
   return <RoleDashboard>{children}</RoleDashboard>;
 }
-  
