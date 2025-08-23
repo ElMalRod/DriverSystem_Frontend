@@ -1,602 +1,363 @@
 "use client"
 
-import { useState, useEffect } from 'react';
-import { useWorkOrders, useWorkStatuses, useWorkTypes } from '@/features/work-orders/hooks';
-import { WorkOrder } from '@/features/work-orders/api';
-import { getUsers, getClients, User } from '@/features/users/api';
-import { getAllVehicles } from '@/features/vehicles/api';
-import Swal from 'sweetalert2';
+import { useEffect, useState } from "react"
+import { 
+  FaClipboardList, 
+  FaPlus, 
+  FaEye, 
+  FaEdit, 
+  FaTrash, 
+  FaFilter, 
+  FaUser, 
+  FaCar, 
+  FaClock, 
+  FaCalendarAlt,
+  FaTools,
+  FaSearch
+} from "react-icons/fa"
+import { 
+  getAllWorkOrders,
+  getWorkOrdersByStatus,
+  getAllWorkStatus,
+  getMaintenanceTypes,
+  WorkOrder,
+  WorkStatus,
+  MaintenanceType
+} from "@/features/work-orders/api"
+
+// Declarar Swal como global
+declare global {
+  interface Window {
+    Swal: any;
+  }
+}
 
 export default function WorkOrdersPage() {
-  const { 
-    workOrders, 
-    loading, 
-    error, 
-    fetchWorkOrders, 
-    fetchWorkOrdersByStatus,
-    createWorkOrder,
-    updateWorkOrder,
-    deleteWorkOrder
-  } = useWorkOrders();
-  
-  const { statuses } = useWorkStatuses();
-  const { types } = useWorkTypes();
-  
-  const [selectedStatus, setSelectedStatus] = useState<number | null>(null);
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [showAssignModal, setShowAssignModal] = useState(false);
-  const [selectedWorkOrder, setSelectedWorkOrder] = useState<WorkOrder | null>(null);
-  const [users, setUsers] = useState<User[]>([]);
-  const [vehicles, setVehicles] = useState<any[]>([]);
-  const [customers, setCustomers] = useState<User[]>([]);
-  
-  // Form data para crear/editar orden
-  const [formData, setFormData] = useState({
-    vehicleId: 0,
-    customerId: 0,
-    typeId: 0,
-    statusType: 1, // Default: Created
-    description: '',
-    estimatedHours: 0,
-    createdBy: 1, // TODO: Get from auth
-    visitId: 0
-  });
+  const [workOrders, setWorkOrders] = useState<WorkOrder[]>([])
+  const [filteredWorkOrders, setFilteredWorkOrders] = useState<WorkOrder[]>([])
+  const [workStatus, setWorkStatus] = useState<WorkStatus[]>([])
+  const [maintenanceTypes, setMaintenanceTypes] = useState<MaintenanceType[]>([])
+  const [loading, setLoading] = useState(true)
+  const [searchTerm, setSearchTerm] = useState("")
+  const [selectedStatus, setSelectedStatus] = useState("")
+  const [selectedType, setSelectedType] = useState("")
 
-  // Cargar datos iniciales
+  // Load initial data
   useEffect(() => {
-    loadInitialData();
-  }, []);
+    loadData()
+  }, [])
 
-  const loadInitialData = async () => {
+  // Filter work orders when search term or filters change
+  useEffect(() => {
+    filterWorkOrders()
+  }, [workOrders, searchTerm, selectedStatus, selectedType])
+
+  const loadData = async () => {
     try {
-      const [usersData, vehiclesData, customersData] = await Promise.all([
-        getUsers(),
-        getAllVehicles(),
-        getClients()
-      ]);
+      setLoading(true)
+      const [ordersData, statusData, typesData] = await Promise.all([
+        getAllWorkOrders(),
+        getAllWorkStatus(),
+        getMaintenanceTypes()
+      ])
       
-      setUsers(usersData);
-      setVehicles(vehiclesData);
-      setCustomers(customersData);
+      setWorkOrders(ordersData)
+      setWorkStatus(statusData)
+      setMaintenanceTypes(typesData)
     } catch (error) {
-      console.error('Error loading initial data:', error);
-    }
-  };
-
-  const handleStatusFilter = (statusId: number | null) => {
-    setSelectedStatus(statusId);
-    if (statusId === null) {
-      fetchWorkOrders();
-    } else {
-      fetchWorkOrdersByStatus(statusId);
-    }
-  };
-
-  const handleCreateWorkOrder = async () => {
-    try {
-      await createWorkOrder(formData);
-      setShowCreateModal(false);
-      resetForm();
-      Swal.fire({
-        title: 'Éxito',
-        text: 'Orden de trabajo creada exitosamente',
-        icon: 'success',
-        confirmButtonColor: '#3B82F6'
-      });
-    } catch (error) {
-      Swal.fire({
-        title: 'Error',
-        text: 'No se pudo crear la orden de trabajo',
-        icon: 'error',
-        confirmButtonColor: '#3B82F6'
-      });
-    }
-  };
-
-  const handleEditWorkOrder = async () => {
-    if (!selectedWorkOrder) return;
-    
-    try {
-      const updatedOrder = { ...selectedWorkOrder, ...formData };
-      await updateWorkOrder(updatedOrder);
-      setShowEditModal(false);
-      setSelectedWorkOrder(null);
-      resetForm();
-      Swal.fire({
-        title: 'Éxito',
-        text: 'Orden de trabajo actualizada exitosamente',
-        icon: 'success',
-        confirmButtonColor: '#3B82F6'
-      });
-    } catch (error) {
-      Swal.fire({
-        title: 'Error',
-        text: 'No se pudo actualizar la orden de trabajo',
-        icon: 'error',
-        confirmButtonColor: '#3B82F6'
-      });
-    }
-  };
-
-  const handleDeleteWorkOrder = async (id: number) => {
-    const result = await Swal.fire({
-      title: '¿Estás seguro?',
-      text: 'Esta acción no se puede deshacer',
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonColor: '#EF4444',
-      cancelButtonColor: '#6B7280',
-      confirmButtonText: 'Sí, eliminar',
-      cancelButtonText: 'Cancelar'
-    });
-
-    if (result.isConfirmed) {
-      try {
-        await deleteWorkOrder(id);
-        Swal.fire({
-          title: 'Eliminada',
-          text: 'La orden de trabajo ha sido eliminada',
-          icon: 'success',
-          confirmButtonColor: '#3B82F6'
-        });
-      } catch (error) {
-        Swal.fire({
+      console.error('Error loading data:', error)
+      if (window.Swal) {
+        window.Swal.fire({
           title: 'Error',
-          text: 'No se pudo eliminar la orden de trabajo',
-          icon: 'error',
-          confirmButtonColor: '#3B82F6'
-        });
+          text: 'Error al cargar las órdenes de trabajo',
+          icon: 'error'
+        })
       }
+    } finally {
+      setLoading(false)
     }
-  };
+  }
 
-  const openEditModal = (workOrder: WorkOrder) => {
-    setSelectedWorkOrder(workOrder);
-    setFormData({
-      vehicleId: workOrder.vehicleId,
-      customerId: workOrder.customerId,
-      typeId: workOrder.typeId,
-      statusType: workOrder.statusType,
-      description: workOrder.description,
-      estimatedHours: workOrder.estimatedHours,
-      createdBy: workOrder.createdBy,
-      visitId: workOrder.visitId || 0
-    });
-    setShowEditModal(true);
-  };
+  const filterWorkOrders = () => {
+    let filtered = [...workOrders]
 
-  const openAssignModal = (workOrder: WorkOrder) => {
-    setSelectedWorkOrder(workOrder);
-    setShowAssignModal(true);
-  };
-
-  const resetForm = () => {
-    setFormData({
-      vehicleId: 0,
-      customerId: 0,
-      typeId: 0,
-      statusType: 1,
-      description: '',
-      estimatedHours: 0,
-      createdBy: 1,
-      visitId: 0
-    });
-  };
-
-  const getStatusName = (statusId: number) => {
-    const status = statuses.find(s => s.id === statusId);
-    return status ? status.name : 'Desconocido';
-  };
-
-  const getStatusColor = (statusId: number) => {
-    const status = statuses.find(s => s.id === statusId);
-    if (!status) return 'bg-gray-100 text-gray-800';
-    
-    switch (status.code) {
-      case 'CREATED': return 'bg-blue-100 text-blue-800';
-      case 'ASSIGNED': return 'bg-yellow-100 text-yellow-800';
-      case 'IN_PROGRESS': return 'bg-purple-100 text-purple-800';
-      case 'ON_HOLD': return 'bg-orange-100 text-orange-800';
-      case 'COMPLETED': return 'bg-green-100 text-green-800';
-      case 'CANCELLED': return 'bg-red-100 text-red-800';
-      case 'CLOSED': return 'bg-gray-100 text-gray-800';
-      case 'NO_AUTHORIZED': return 'bg-pink-100 text-pink-800';
-      default: return 'bg-gray-100 text-gray-800';
+    // Filter by search term
+    if (searchTerm.trim()) {
+      const term = searchTerm.toLowerCase()
+      filtered = filtered.filter(order => 
+        order.code.toLowerCase().includes(term) ||
+        order.customer.toLowerCase().includes(term) ||
+        order.plate.toLowerCase().includes(term) ||
+        order.make.toLowerCase().includes(term) ||
+        order.model.toLowerCase().includes(term) ||
+        (order.description && order.description.toLowerCase().includes(term))
+      )
     }
-  };
 
-  const getTypeName = (typeId: number) => {
-    const type = types.find(t => t.id === typeId);
-    return type ? type.name : 'Desconocido';
-  };
+    // Filter by status
+    if (selectedStatus) {
+      filtered = filtered.filter(order => order.status === selectedStatus)
+    }
 
-  const getVehicleInfo = (vehicleId: number) => {
-    const vehicle = vehicles.find(v => v.id === vehicleId);
-    return vehicle ? `${vehicle.licensePlate} (${vehicle.make} ${vehicle.model})` : 'Vehículo desconocido';
-  };
+    // Filter by maintenance type
+    if (selectedType) {
+      filtered = filtered.filter(order => order.maintenanceType === selectedType)
+    }
 
-  const getCustomerName = (customerId: number) => {
-    const customer = customers.find(c => c.id === customerId);
-    return customer ? customer.name : 'Cliente desconocido';
-  };
+    setFilteredWorkOrders(filtered)
+  }
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'Created': return 'bg-blue-100 text-blue-800'
+      case 'Assigned': return 'bg-yellow-100 text-yellow-800'
+      case 'In Progress': return 'bg-orange-100 text-orange-800'
+      case 'On Hold': return 'bg-gray-100 text-gray-800'
+      case 'Completed': return 'bg-green-100 text-green-800'
+      case 'Cancelled': return 'bg-red-100 text-red-800'
+      case 'Closed': return 'bg-purple-100 text-purple-800'
+      case 'No Authorized': return 'bg-pink-100 text-pink-800'
+      default: return 'bg-gray-100 text-gray-800'
+    }
+  }
+
+  const getTypeColor = (type: string) => {
+    switch (type) {
+      case 'Corrective': return 'bg-red-50 text-red-700 border border-red-200'
+      case 'Preventive': return 'bg-blue-50 text-blue-700 border border-blue-200'
+      default: return 'bg-gray-50 text-gray-700 border border-gray-200'
+    }
+  }
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('es-ES', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+  }
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center p-8">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-        <span className="ml-2">Cargando órdenes de trabajo...</span>
+      <div className="flex justify-center items-center min-h-screen">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
       </div>
-    );
+    )
   }
 
   return (
-    <div>
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-[var(--color-dark)]">
-            Órdenes de Trabajo
-          </h1>
-          <p className="text-gray-600">
-            Gestiona las órdenes de trabajo mecánicas
-          </p>
+    <div className="p-6 bg-gray-50 min-h-screen">
+      {/* Header */}
+      <div className="mb-8">
+        <div className="flex items-center gap-3 mb-4">
+          <FaClipboardList className="text-3xl text-blue-600" />
+          <h1 className="text-3xl font-bold text-gray-800">Órdenes de Trabajo</h1>
         </div>
-        
-        <button
-          onClick={() => setShowCreateModal(true)}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
-        >
-          Nueva Orden
-        </button>
+        <p className="text-gray-600">Gestión completa de órdenes de trabajo del taller</p>
       </div>
 
-      {/* Filtros por estado */}
-      <div className="bg-white border border-gray-200 rounded-lg p-4 mb-6">
-        <h3 className="text-lg font-semibold mb-3">Filtrar por Estado</h3>
-        <div className="flex flex-wrap gap-2">
-          <button
-            onClick={() => handleStatusFilter(null)}
-            className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
-              selectedStatus === null 
-                ? 'bg-blue-600 text-white' 
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
+      {/* Filters and Search */}
+      <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          {/* Search */}
+          <div className="relative">
+            <FaSearch className="absolute left-3 top-3.5 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Buscar por código, cliente, placa..."
+              className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+
+          {/* Status Filter */}
+          <select
+            className="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            value={selectedStatus}
+            onChange={(e) => setSelectedStatus(e.target.value)}
           >
-            Todas
+            <option value="">Todos los estados</option>
+            {workStatus.map((status) => (
+              <option key={status.id} value={status.name}>
+                {status.name}
+              </option>
+            ))}
+          </select>
+
+          {/* Type Filter */}
+          <select
+            className="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            value={selectedType}
+            onChange={(e) => setSelectedType(e.target.value)}
+          >
+            <option value="">Todos los tipos</option>
+            {maintenanceTypes.map((type) => (
+              <option key={type.id} value={type.name}>
+                {type.name}
+              </option>
+            ))}
+          </select>
+
+          {/* Create Button */}
+          <button className="bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2">
+            <FaPlus />
+            Nueva Orden
           </button>
-          {statuses.map(status => (
-            <button
-              key={status.id}
-              onClick={() => handleStatusFilter(status.id)}
-              className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
-                selectedStatus === status.id 
-                  ? 'bg-blue-600 text-white' 
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              {status.name}
-            </button>
-          ))}
         </div>
       </div>
 
-      {/* Lista de órdenes */}
-      <div className="bg-white border border-gray-200 rounded-lg">
-        <div className="p-4 border-b border-gray-200">
-          <h2 className="text-lg font-semibold">Lista de Órdenes</h2>
-          <p className="text-sm text-gray-600">
-            {workOrders.length} órden(es) encontrada(s)
-          </p>
-        </div>
-
-        {error && (
-          <div className="p-4 bg-red-50 border-b border-red-200 text-red-700">
-            {error}
-          </div>
-        )}
-
-        {workOrders.length === 0 ? (
-          <div className="p-8 text-center text-gray-500">
-            No se encontraron órdenes de trabajo
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    ID
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Vehículo
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Cliente
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Tipo
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Estado
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Descripción
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Horas Est.
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Acciones
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {workOrders.map((order) => (
-                  <tr key={order.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      #{order.id}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {getVehicleInfo(order.vehicleId)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {getCustomerName(order.customerId)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {getTypeName(order.typeId)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(order.statusType)}`}>
-                        {getStatusName(order.statusType)}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-500 max-w-xs truncate">
-                      {order.description}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {order.estimatedHours}h
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                      <button
-                        onClick={() => openEditModal(order)}
-                        className="text-blue-600 hover:text-blue-800 transition-colors"
-                      >
-                        Editar
-                      </button>
-                      <button
-                        onClick={() => openAssignModal(order)}
-                        className="text-green-600 hover:text-green-800 transition-colors"
-                      >
-                        Asignar
-                      </button>
-                      <button
-                        onClick={() => handleDeleteWorkOrder(order.id)}
-                        className="text-red-600 hover:text-red-800 transition-colors"
-                      >
-                        Eliminar
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
-      {/* Modal Crear Orden */}
-      {showCreateModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h2 className="text-xl font-bold mb-4">Crear Nueva Orden de Trabajo</h2>
-            
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+      {/* Work Orders Table */}
+      <div className="bg-white rounded-lg shadow-md overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Código
+                </th>
+                <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Cliente
-                </label>
-                <select
-                  value={formData.customerId}
-                  onChange={(e) => setFormData({...formData, customerId: parseInt(e.target.value)})}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                  required
-                >
-                  <option value={0}>Seleccionar cliente</option>
-                  {customers.map(customer => (
-                    <option key={customer.id} value={customer.id}>
-                      {customer.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                </th>
+                <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Vehículo
-                </label>
-                <select
-                  value={formData.vehicleId}
-                  onChange={(e) => setFormData({...formData, vehicleId: parseInt(e.target.value)})}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                  required
-                >
-                  <option value={0}>Seleccionar vehículo</option>
-                  {vehicles.map(vehicle => (
-                    <option key={vehicle.id} value={vehicle.id}>
-                      {vehicle.licensePlate} - {vehicle.make} {vehicle.model}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Tipo de Trabajo
-                </label>
-                <select
-                  value={formData.typeId}
-                  onChange={(e) => setFormData({...formData, typeId: parseInt(e.target.value)})}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                  required
-                >
-                  <option value={0}>Seleccionar tipo</option>
-                  {types.map(type => (
-                    <option key={type.id} value={type.id}>
-                      {type.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Descripción
-                </label>
-                <textarea
-                  value={formData.description}
-                  onChange={(e) => setFormData({...formData, description: e.target.value})}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                  rows={3}
-                  placeholder="Describir el trabajo a realizar..."
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Horas Estimadas
-                </label>
-                <input
-                  type="number"
-                  value={formData.estimatedHours}
-                  onChange={(e) => setFormData({...formData, estimatedHours: parseInt(e.target.value)})}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                  min="0"
-                  step="0.5"
-                  required
-                />
-              </div>
-            </div>
-
-            <div className="flex gap-3 mt-6">
-              <button
-                onClick={handleCreateWorkOrder}
-                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg font-medium transition-colors"
-              >
-                Crear Orden
-              </button>
-              <button
-                onClick={() => {
-                  setShowCreateModal(false);
-                  resetForm();
-                }}
-                className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-700 py-2 px-4 rounded-lg font-medium transition-colors"
-              >
-                Cancelar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Modal Editar Orden - Similar al modal crear pero con datos prellenados */}
-      {showEditModal && selectedWorkOrder && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h2 className="text-xl font-bold mb-4">Editar Orden de Trabajo #{selectedWorkOrder.id}</h2>
-            
-            {/* Mismo formulario que crear, pero con los datos del selectedWorkOrder */}
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                </th>
+                <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Tipo
+                </th>
+                <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Estado
-                </label>
-                <select
-                  value={formData.statusType}
-                  onChange={(e) => setFormData({...formData, statusType: parseInt(e.target.value)})}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                >
-                  {statuses.map(status => (
-                    <option key={status.id} value={status.id}>
-                      {status.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+                </th>
+                <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Horas Est.
+                </th>
+                <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Fecha Apertura
+                </th>
+                <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Acciones
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {filteredWorkOrders.map((order) => (
+                <tr key={order.id} className="hover:bg-gray-50">
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm font-medium text-gray-900">{order.code}</div>
+                  </td>
+                  
+                  <td className="px-6 py-4">
+                    <div className="flex items-start">
+                      <FaUser className="text-gray-400 mr-2 mt-1 text-sm" />
+                      <div>
+                        <div className="text-sm font-medium text-gray-900">{order.customer}</div>
+                        <div className="text-sm text-gray-500">{order.docNumberCustomer}</div>
+                        <div className="text-sm text-gray-500">{order.phoneCustomer}</div>
+                      </div>
+                    </div>
+                  </td>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Descripción
-                </label>
-                <textarea
-                  value={formData.description}
-                  onChange={(e) => setFormData({...formData, description: e.target.value})}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                  rows={3}
-                  required
-                />
-              </div>
+                  <td className="px-6 py-4">
+                    <div className="flex items-start">
+                      <FaCar className="text-gray-400 mr-2 mt-1 text-sm" />
+                      <div>
+                        <div className="text-sm font-medium text-gray-900">{order.plate}</div>
+                        <div className="text-sm text-gray-500">{order.make} {order.model}</div>
+                        <div className="text-sm text-gray-500">{order.modelYear} - {order.color}</div>
+                      </div>
+                    </div>
+                  </td>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Horas Estimadas
-                </label>
-                <input
-                  type="number"
-                  value={formData.estimatedHours}
-                  onChange={(e) => setFormData({...formData, estimatedHours: parseInt(e.target.value)})}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                  min="0"
-                  step="0.5"
-                  required
-                />
-              </div>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getTypeColor(order.maintenanceType)}`}>
+                      <FaTools className="mr-1" />
+                      {order.maintenanceType}
+                    </span>
+                  </td>
+
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(order.status)}`}>
+                      {order.status}
+                    </span>
+                  </td>
+
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <div className="flex items-center">
+                      <FaClock className="text-gray-400 mr-1 text-sm" />
+                      {order.estimatedHours ? `${order.estimatedHours}h` : 'N/A'}
+                    </div>
+                  </td>
+
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <div className="flex items-center">
+                      <FaCalendarAlt className="text-gray-400 mr-1 text-sm" />
+                      {formatDate(order.openedAt)}
+                    </div>
+                  </td>
+
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    <div className="flex gap-2">
+                      <button className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50">
+                        <FaEye />
+                      </button>
+                      <button className="text-indigo-600 hover:text-indigo-900 p-1 rounded hover:bg-indigo-50">
+                        <FaEdit />
+                      </button>
+                      <button className="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-50">
+                        <FaTrash />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          {filteredWorkOrders.length === 0 && (
+            <div className="text-center py-12">
+              <FaClipboardList className="mx-auto text-4xl text-gray-400 mb-4" />
+              <p className="text-gray-500 text-lg">
+                {workOrders.length === 0 
+                  ? "No hay órdenes de trabajo registradas" 
+                  : "No se encontraron órdenes que coincidan con los filtros"
+                }
+              </p>
             </div>
-
-            <div className="flex gap-3 mt-6">
-              <button
-                onClick={handleEditWorkOrder}
-                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg font-medium transition-colors"
-              >
-                Actualizar
-              </button>
-              <button
-                onClick={() => {
-                  setShowEditModal(false);
-                  setSelectedWorkOrder(null);
-                  resetForm();
-                }}
-                className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-700 py-2 px-4 rounded-lg font-medium transition-colors"
-              >
-                Cancelar
-              </button>
-            </div>
-          </div>
+          )}
         </div>
-      )}
+      </div>
 
-      {/* Modal Asignar - Placeholder por ahora */}
-      {showAssignModal && selectedWorkOrder && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h2 className="text-xl font-bold mb-4">Asignar Orden #{selectedWorkOrder.id}</h2>
-            
-            <p className="text-gray-600 mb-4">
-              Funcionalidad de asignación de empleados próximamente disponible.
-            </p>
-
-            <button
-              onClick={() => {
-                setShowAssignModal(false);
-                setSelectedWorkOrder(null);
-              }}
-              className="w-full bg-gray-300 hover:bg-gray-400 text-gray-700 py-2 px-4 rounded-lg font-medium transition-colors"
-            >
-              Cerrar
-            </button>
+      {/* Summary */}
+      {workOrders.length > 0 && (
+        <div className="mt-6 bg-white rounded-lg shadow-md p-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-blue-600">{workOrders.length}</div>
+              <div className="text-sm text-gray-600">Total Órdenes</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-green-600">
+                {workOrders.filter(o => o.status === 'Completed').length}
+              </div>
+              <div className="text-sm text-gray-600">Completadas</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-orange-600">
+                {workOrders.filter(o => o.status === 'In Progress').length}
+              </div>
+              <div className="text-sm text-gray-600">En Progreso</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-yellow-600">
+                {workOrders.filter(o => o.status === 'Created' || o.status === 'Assigned').length}
+              </div>
+              <div className="text-sm text-gray-600">Pendientes</div>
+            </div>
           </div>
         </div>
       )}
     </div>
-  );
+  )
 }

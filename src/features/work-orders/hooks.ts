@@ -1,151 +1,165 @@
-import { useState, useEffect } from 'react';
-import { workOrdersApi, WorkOrder, WorkStatus, WorkType } from './api';
+import { useState, useEffect } from 'react'
+import { 
+  getAllWorkOrders,
+  getWorkOrderById,
+  getWorkOrdersByStatus,
+  getAllWorkStatus,
+  getMaintenanceTypes,
+  WorkOrder,
+  WorkStatus,
+  MaintenanceType
+} from './api'
 
-export const useWorkOrders = () => {
-  const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+export function useWorkOrders() {
+  const [workOrders, setWorkOrders] = useState<WorkOrder[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   const fetchWorkOrders = async () => {
-    setLoading(true);
-    setError(null);
     try {
-      const orders = await workOrdersApi.getWorkOrders();
-      setWorkOrders(orders);
+      setLoading(true)
+      setError(null)
+      const data = await getAllWorkOrders()
+      setWorkOrders(data)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al cargar órdenes de trabajo');
+      setError(err instanceof Error ? err.message : 'Error fetching work orders')
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
-
-  const fetchWorkOrdersByStatus = async (statusId: number) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const orders = await workOrdersApi.getWorkOrdersByStatus(statusId);
-      setWorkOrders(orders);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al cargar órdenes por estado');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const createWorkOrder = async (workOrder: Omit<WorkOrder, 'id'>) => {
-    setLoading(true);
-    setError(null);
-    try {
-      await workOrdersApi.createWorkOrder(workOrder);
-      await fetchWorkOrders(); // Refresh list
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al crear orden de trabajo');
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const updateWorkOrder = async (workOrder: WorkOrder) => {
-    setLoading(true);
-    setError(null);
-    try {
-      await workOrdersApi.updateWorkOrder(workOrder);
-      await fetchWorkOrders(); // Refresh list
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al actualizar orden de trabajo');
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const deleteWorkOrder = async (id: number) => {
-    setLoading(true);
-    setError(null);
-    try {
-      await workOrdersApi.deleteWorkOrder(id);
-      await fetchWorkOrders(); // Refresh list
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al eliminar orden de trabajo');
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  };
+  }
 
   useEffect(() => {
-    fetchWorkOrders();
-  }, []);
+    fetchWorkOrders()
+  }, [])
 
   return {
     workOrders,
     loading,
     error,
-    fetchWorkOrders,
-    fetchWorkOrdersByStatus,
-    createWorkOrder,
-    updateWorkOrder,
-    deleteWorkOrder,
-  };
-};
+    refetch: fetchWorkOrders
+  }
+}
 
-export const useWorkStatuses = () => {
-  const [statuses, setStatuses] = useState<WorkStatus[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+export function useWorkOrder(id: number) {
+  const [workOrder, setWorkOrder] = useState<WorkOrder | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  const fetchStatuses = async () => {
-    setLoading(true);
-    setError(null);
+  const fetchWorkOrder = async () => {
     try {
-      const statusList = await workOrdersApi.getWorkStatuses();
-      setStatuses(statusList);
+      setLoading(true)
+      setError(null)
+      const data = await getWorkOrderById(id)
+      setWorkOrder(data)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al cargar estados');
+      setError(err instanceof Error ? err.message : 'Error fetching work order')
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   useEffect(() => {
-    fetchStatuses();
-  }, []);
+    if (id) {
+      fetchWorkOrder()
+    }
+  }, [id])
 
   return {
-    statuses,
+    workOrder,
     loading,
     error,
-    fetchStatuses,
-  };
-};
+    refetch: fetchWorkOrder
+  }
+}
 
-export const useWorkTypes = () => {
-  const [types, setTypes] = useState<WorkType[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+export function useWorkOrdersByStatus(statusId?: number) {
+  const [workOrders, setWorkOrders] = useState<WorkOrder[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  const fetchTypes = async () => {
-    setLoading(true);
-    setError(null);
+  const fetchWorkOrdersByStatus = async (id: number) => {
     try {
-      const typeList = await workOrdersApi.getWorkTypes();
-      setTypes(typeList);
+      setLoading(true)
+      setError(null)
+      const data = await getWorkOrdersByStatus(id)
+      setWorkOrders(data)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al cargar tipos de trabajo');
+      setError(err instanceof Error ? err.message : 'Error fetching work orders by status')
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   useEffect(() => {
-    fetchTypes();
-  }, []);
+    if (statusId) {
+      fetchWorkOrdersByStatus(statusId)
+    }
+  }, [statusId])
 
   return {
-    types,
+    workOrders,
     loading,
     error,
-    fetchTypes,
-  };
-};
+    fetchByStatus: fetchWorkOrdersByStatus
+  }
+}
+
+export function useWorkStatus() {
+  const [workStatus, setWorkStatus] = useState<WorkStatus[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const fetchWorkStatus = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      const data = await getAllWorkStatus()
+      setWorkStatus(data)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error fetching work status')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchWorkStatus()
+  }, [])
+
+  return {
+    workStatus,
+    loading,
+    error,
+    refetch: fetchWorkStatus
+  }
+}
+
+export function useMaintenanceTypes() {
+  const [maintenanceTypes, setMaintenanceTypes] = useState<MaintenanceType[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const fetchMaintenanceTypes = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      const data = await getMaintenanceTypes()
+      setMaintenanceTypes(data)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error fetching maintenance types')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchMaintenanceTypes()
+  }, [])
+
+  return {
+    maintenanceTypes,
+    loading,
+    error,
+    refetch: fetchMaintenanceTypes
+  }
+}
