@@ -17,19 +17,30 @@ export interface WorkLogCreateRequest {
   hours: number // Required by backend - use 0 if no hours worked
 }
 
-// Basic work order response from API
+// Basic work order response from API - Updated to match actual backend response
 export interface WorkOrderApiResponse {
   id: number
   code: string
-  vehicleId: number
-  customerId: number
-  typeId: number
-  statusType: number
   description?: string
   estimatedHours?: number
   openedAt: string
   closedAt?: string
-  createdBy: number
+  maintenanceType: string // Backend now returns this as string
+  status: string // Backend now returns this as string
+  customerId: number
+  docNumberCustomer: string
+  customer: string
+  phoneCustomer: string
+  createdBy: string
+  vin: string
+  plate: string
+  model: string
+  modelYear: number
+  color: string
+  make: string
+  vehicleId?: number // Optional since it might not always be included
+  typeId?: number // Optional since we now have maintenanceType directly
+  statusType?: number // Optional since we now have status directly
   visitId?: number
 }
 

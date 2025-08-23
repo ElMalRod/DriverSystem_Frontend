@@ -32,28 +32,13 @@ export type {
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
 
 // Get all work orders
+// Get all work orders
 export async function getAllWorkOrders(): Promise<WorkOrder[]> {
   try {
     const response = await httpClient(`${BASE_URL}/api/Work/order/`)
     const workOrdersData: WorkOrderApiResponse[] = await response.json()
     
-    // Transform API response to WorkOrder format
-    const statusMapping: { [key: number]: string } = {
-      1: 'Created',
-      2: 'Assigned', 
-      3: 'In Progress',
-      4: 'On Hold',
-      5: 'Completed',
-      6: 'Cancelled',
-      7: 'Closed',
-      8: 'No Authorized'
-    }
-
-    const typeMapping: { [key: number]: 'Corrective' | 'Preventive' } = {
-      1: 'Preventive',
-      2: 'Corrective'
-    }
-
+    // The backend now returns all the data we need, so we can map it directly
     return workOrdersData.map((workOrderData): WorkOrder => ({
       id: workOrderData.id,
       code: workOrderData.code,
@@ -61,20 +46,22 @@ export async function getAllWorkOrders(): Promise<WorkOrder[]> {
       estimatedHours: workOrderData.estimatedHours,
       openedAt: workOrderData.openedAt,
       closedAt: workOrderData.closedAt,
-      maintenanceType: typeMapping[workOrderData.typeId] || 'Corrective',
-      status: statusMapping[workOrderData.statusType] || 'Created',
+      maintenanceType: workOrderData.maintenanceType as 'Corrective' | 'Preventive',
+      status: workOrderData.status,
       customerId: workOrderData.customerId,
       vehicleId: workOrderData.vehicleId,
-      docNumberCustomer: `Doc-${workOrderData.customerId}`, // Placeholder
-      customer: `Cliente ${workOrderData.customerId}`, // Placeholder
-      phoneCustomer: 'N/A', // Placeholder
-      createdBy: `User ${workOrderData.createdBy}`,
-      vin: `VIN-${workOrderData.vehicleId}`, // Placeholder
-      plate: `Placa-${workOrderData.vehicleId}`, // Placeholder
-      model: `Modelo ${workOrderData.vehicleId}`, // Placeholder
-      modelYear: new Date().getFullYear(),
-      color: 'N/A',
-      make: `Marca ${workOrderData.vehicleId}` // Placeholder
+      // Customer data from backend
+      customer: workOrderData.customer,
+      docNumberCustomer: workOrderData.docNumberCustomer,
+      phoneCustomer: workOrderData.phoneCustomer,
+      // Vehicle data from backend
+      plate: workOrderData.plate,
+      make: workOrderData.make,
+      model: workOrderData.model,
+      modelYear: workOrderData.modelYear,
+      color: workOrderData.color,
+      vin: workOrderData.vin,
+      createdBy: workOrderData.createdBy
     }))
   } catch (error) {
     console.error('Error getting all work orders:', error)
@@ -82,55 +69,37 @@ export async function getAllWorkOrders(): Promise<WorkOrder[]> {
   }
 }
 
-// Get work order by ID with basic transformation
+// Get work order by ID with details
 export async function getWorkOrderWithDetails(id: number): Promise<WorkOrder | null> {
   try {
-    // Get basic work order data
     const workOrderResponse = await httpClient(`${BASE_URL}/api/Work/order/{id}?id=${id}`)
     const workOrderData: WorkOrderApiResponse = await workOrderResponse.json()
     
-    // Status and type mappings
-    const statusMapping: { [key: number]: string } = {
-      1: 'Created',
-      2: 'Assigned', 
-      3: 'In Progress',
-      4: 'On Hold',
-      5: 'Completed',
-      6: 'Cancelled',
-      7: 'Closed',
-      8: 'No Authorized'
-    }
-
-    const typeMapping: { [key: number]: 'Corrective' | 'Preventive' } = {
-      1: 'Preventive',
-      2: 'Corrective'
-    }
-
-    // Create basic work order with available data
-    const workOrder: WorkOrder = {
+    // Map the backend response directly to WorkOrder
+    return {
       id: workOrderData.id,
       code: workOrderData.code,
       description: workOrderData.description,
       estimatedHours: workOrderData.estimatedHours,
       openedAt: workOrderData.openedAt,
       closedAt: workOrderData.closedAt,
-      maintenanceType: typeMapping[workOrderData.typeId] || 'Corrective',
-      status: statusMapping[workOrderData.statusType] || 'Created',
+      maintenanceType: workOrderData.maintenanceType as 'Corrective' | 'Preventive',
+      status: workOrderData.status,
       customerId: workOrderData.customerId,
-      vehicleId: workOrderData.vehicleId, // Include vehicleId from API response
-      docNumberCustomer: `Doc-${workOrderData.customerId}`, // Placeholder
-      customer: `Cliente ${workOrderData.customerId}`, // Placeholder
-      phoneCustomer: 'N/A', // Placeholder
-      createdBy: `User ${workOrderData.createdBy}`,
-      vin: `VIN-${workOrderData.vehicleId}`, // Placeholder
-      plate: `Placa-${workOrderData.vehicleId}`, // Placeholder
-      model: `Modelo ${workOrderData.vehicleId}`, // Placeholder
-      modelYear: new Date().getFullYear(),
-      color: 'N/A',
-      make: `Marca ${workOrderData.vehicleId}` // Placeholder
+      vehicleId: workOrderData.vehicleId,
+      // Customer data from backend
+      customer: workOrderData.customer,
+      docNumberCustomer: workOrderData.docNumberCustomer,
+      phoneCustomer: workOrderData.phoneCustomer,
+      // Vehicle data from backend
+      plate: workOrderData.plate,
+      make: workOrderData.make,
+      model: workOrderData.model,
+      modelYear: workOrderData.modelYear,
+      color: workOrderData.color,
+      vin: workOrderData.vin,
+      createdBy: workOrderData.createdBy
     }
-
-    return workOrder
   } catch (error) {
     console.error('Error getting work order details:', error)
     return null
