@@ -28,3 +28,13 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* SweetAlert2 z-index fix for modals */
+.swal-high-zindex,
+.swal2-container.swal-high-zindex {
+  z-index: 99999 !important;
+}
+
+.swal2-container {
+  z-index: 99999 !important;
+}

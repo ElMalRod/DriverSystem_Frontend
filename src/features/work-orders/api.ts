@@ -1,13 +1,17 @@
 import { httpClient } from "@/services/http"
 import { 
-  WorkOrder, 
+  WorkOrder,
+  WorkOrderApiResponse,
   WorkOrderCreateRequest, 
   WorkOrderViewRequest, 
   WorkOrderUserRequest,
   WorkStatus,
   MaintenanceType,
   WorkAssignment,
-  WorkLog
+  WorkAssignmentCreateRequest,
+  WorkLog,
+  WorkLogCreateRequest,
+  WorkAssignmentWithEmployeeInfo
 } from "@/entities/work-order"
 
 // Re-export types for convenience
@@ -19,20 +23,123 @@ export type {
   WorkStatus,
   MaintenanceType,
   WorkAssignment,
-  WorkLog
+  WorkAssignmentCreateRequest,
+  WorkAssignmentWithEmployeeInfo,
+  WorkLog,
+  WorkLogCreateRequest
 }
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
 
 // Get all work orders
 export async function getAllWorkOrders(): Promise<WorkOrder[]> {
-  const response = await httpClient(`${BASE_URL}/api/Work/order/`)
-  return response.json()
+  try {
+    const response = await httpClient(`${BASE_URL}/api/Work/order/`)
+    const workOrdersData: WorkOrderApiResponse[] = await response.json()
+    
+    // Transform API response to WorkOrder format
+    const statusMapping: { [key: number]: string } = {
+      1: 'Created',
+      2: 'Assigned', 
+      3: 'In Progress',
+      4: 'On Hold',
+      5: 'Completed',
+      6: 'Cancelled',
+      7: 'Closed',
+      8: 'No Authorized'
+    }
+
+    const typeMapping: { [key: number]: 'Corrective' | 'Preventive' } = {
+      1: 'Preventive',
+      2: 'Corrective'
+    }
+
+    return workOrdersData.map((workOrderData): WorkOrder => ({
+      id: workOrderData.id,
+      code: workOrderData.code,
+      description: workOrderData.description,
+      estimatedHours: workOrderData.estimatedHours,
+      openedAt: workOrderData.openedAt,
+      closedAt: workOrderData.closedAt,
+      maintenanceType: typeMapping[workOrderData.typeId] || 'Corrective',
+      status: statusMapping[workOrderData.statusType] || 'Created',
+      customerId: workOrderData.customerId,
+      vehicleId: workOrderData.vehicleId,
+      docNumberCustomer: `Doc-${workOrderData.customerId}`, // Placeholder
+      customer: `Cliente ${workOrderData.customerId}`, // Placeholder
+      phoneCustomer: 'N/A', // Placeholder
+      createdBy: `User ${workOrderData.createdBy}`,
+      vin: `VIN-${workOrderData.vehicleId}`, // Placeholder
+      plate: `Placa-${workOrderData.vehicleId}`, // Placeholder
+      model: `Modelo ${workOrderData.vehicleId}`, // Placeholder
+      modelYear: new Date().getFullYear(),
+      color: 'N/A',
+      make: `Marca ${workOrderData.vehicleId}` // Placeholder
+    }))
+  } catch (error) {
+    console.error('Error getting all work orders:', error)
+    throw error
+  }
+}
+
+// Get work order by ID with basic transformation
+export async function getWorkOrderWithDetails(id: number): Promise<WorkOrder | null> {
+  try {
+    // Get basic work order data
+    const workOrderResponse = await httpClient(`${BASE_URL}/api/Work/order/{id}?id=${id}`)
+    const workOrderData: WorkOrderApiResponse = await workOrderResponse.json()
+    
+    // Status and type mappings
+    const statusMapping: { [key: number]: string } = {
+      1: 'Created',
+      2: 'Assigned', 
+      3: 'In Progress',
+      4: 'On Hold',
+      5: 'Completed',
+      6: 'Cancelled',
+      7: 'Closed',
+      8: 'No Authorized'
+    }
+
+    const typeMapping: { [key: number]: 'Corrective' | 'Preventive' } = {
+      1: 'Preventive',
+      2: 'Corrective'
+    }
+
+    // Create basic work order with available data
+    const workOrder: WorkOrder = {
+      id: workOrderData.id,
+      code: workOrderData.code,
+      description: workOrderData.description,
+      estimatedHours: workOrderData.estimatedHours,
+      openedAt: workOrderData.openedAt,
+      closedAt: workOrderData.closedAt,
+      maintenanceType: typeMapping[workOrderData.typeId] || 'Corrective',
+      status: statusMapping[workOrderData.statusType] || 'Created',
+      customerId: workOrderData.customerId,
+      vehicleId: workOrderData.vehicleId, // Include vehicleId from API response
+      docNumberCustomer: `Doc-${workOrderData.customerId}`, // Placeholder
+      customer: `Cliente ${workOrderData.customerId}`, // Placeholder
+      phoneCustomer: 'N/A', // Placeholder
+      createdBy: `User ${workOrderData.createdBy}`,
+      vin: `VIN-${workOrderData.vehicleId}`, // Placeholder
+      plate: `Placa-${workOrderData.vehicleId}`, // Placeholder
+      model: `Modelo ${workOrderData.vehicleId}`, // Placeholder
+      modelYear: new Date().getFullYear(),
+      color: 'N/A',
+      make: `Marca ${workOrderData.vehicleId}` // Placeholder
+    }
+
+    return workOrder
+  } catch (error) {
+    console.error('Error getting work order details:', error)
+    return null
+  }
 }
 
 // Get work order by ID
-export async function getWorkOrderById(id: number): Promise<WorkOrder> {
-  const response = await httpClient(`${BASE_URL}/api/Work/order/${id}`)
+export async function getWorkOrderById(id: number): Promise<WorkOrderApiResponse> {
+  const response = await httpClient(`${BASE_URL}/api/Work/order/{id}?id=${id}`)
   return response.json()
 }
 
@@ -45,7 +152,77 @@ export async function createWorkOrder(workOrder: WorkOrderCreateRequest): Promis
   return response.json()
 }
 
-// Update work order
+// Update work order basic info
+export async function updateWorkOrderInfo(updateData: {
+  id: number
+  description: string
+  estimatedHours: number | null
+  typeId: number
+  workOrder: WorkOrder // Need the complete work order to send all required fields
+}): Promise<any> {
+  const response = await httpClient(`${BASE_URL}/api/Work/order/`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      id: updateData.id,
+      vehicleId: updateData.workOrder.vehicleId || 1, // Get from original work order
+      customerId: updateData.workOrder.customerId,
+      typeId: updateData.typeId,
+      statusType: getStatusTypeFromString(updateData.workOrder.status),
+      description: updateData.description,
+      estimatedHours: updateData.estimatedHours,
+      closedAt: updateData.workOrder.closedAt || null,
+      createdBy: 1, // TODO: Get from auth context
+      visitId: null // Optional field
+    })
+  })
+
+  const contentType = response.headers.get('content-type')
+  if (contentType && contentType.includes('application/json')) {
+    return response.json()
+  }
+  return null
+}
+
+// Helper function to convert status string to number
+function getStatusTypeFromString(status: string): number {
+  const statusMapping: { [key: string]: number } = {
+    'Created': 1,
+    'Assigned': 2,
+    'In Progress': 3,
+    'On Hold': 4,
+    'Completed': 5,
+    'Cancelled': 6,
+    'Closed': 7,
+    'No Authorized': 8
+  }
+  return statusMapping[status] || 1
+}
+
+// Update work order status
+export async function updateWorkOrderStatus(id: number, statusType: number, comment?: string): Promise<any> {
+  const response = await httpClient(`${BASE_URL}/api/work/log/`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      workOrderId: id,
+      autorId: 1, // TODO: Get from auth context
+      logType: 'NOTE',
+      note: comment || `Estado cambiado a ${statusType}`,
+      hours: 0 // Always send 0 for status change logs
+    })
+  })
+
+  const contentType = response.headers.get('content-type')
+  if (contentType && contentType.includes('application/json')) {
+    return response.json()
+  }
+  return null
+}
 export async function updateWorkOrder(workOrder: WorkOrderCreateRequest): Promise<any> {
   const response = await httpClient(`${BASE_URL}/api/Work/order/`, {
     method: 'PUT',
@@ -121,4 +298,98 @@ export async function getWorkAssignments(workOrderId: number): Promise<WorkAssig
 export async function getWorkLogs(workOrderId: number): Promise<WorkLog[]> {
   // Pendiente implementar cuando tengas el endpoint
   throw new Error('Endpoint not implemented yet')
+}
+
+// =============================================================================
+// WORK ASSIGNMENTS API
+// =============================================================================
+
+// Get all work assignments
+export async function getAllWorkAssignments(): Promise<WorkAssignment[]> {
+  const response = await httpClient(`${BASE_URL}/api/work/assignment/`)
+  return response.json()
+}
+
+// Create work assignment
+export async function createWorkAssignment(assignment: WorkAssignmentCreateRequest): Promise<any> {
+  const response = await httpClient(`${BASE_URL}/api/work/assignment/`, {
+    method: 'POST',
+    body: JSON.stringify(assignment)
+  })
+  
+  // Check if response has content before trying to parse JSON
+  const contentType = response.headers.get('content-type')
+  if (contentType && contentType.includes('application/json')) {
+    return response.json()
+  } else {
+    // If no JSON content, just return success status
+    return { success: response.ok }
+  }
+}
+
+// Update work assignment
+export async function updateWorkAssignment(assignment: WorkAssignmentCreateRequest): Promise<any> {
+  const response = await httpClient(`${BASE_URL}/api/work/assignment/`, {
+    method: 'PUT',
+    body: JSON.stringify(assignment)
+  })
+  return response.json()
+}
+
+// Delete work assignment
+export async function deleteWorkAssignment(id: number): Promise<any> {
+  const response = await httpClient(`${BASE_URL}/api/work/assignment/${id}`, {
+    method: 'DELETE'
+  })
+  
+  // Check if response has content before trying to parse JSON
+  const contentType = response.headers.get('content-type')
+  if (contentType && contentType.includes('application/json')) {
+    return response.json()
+  } else {
+    // If no JSON content, just return success status
+    return { success: response.ok }
+  }
+}
+
+// Get assignments for a specific work order
+export async function getWorkAssignmentsByOrder(workOrderId: number): Promise<WorkAssignment[]> {
+  const response = await getAllWorkAssignments()
+  return response.filter(assignment => assignment.workOrderId === workOrderId)
+}
+
+// Work Log Functions
+// Get all work logs
+export async function getAllWorkLogs(): Promise<WorkLog[]> {
+  const response = await httpClient(`${BASE_URL}/api/work/log/`)
+  return response.json()
+}
+
+// Get work logs by order ID
+export async function getWorkLogsByOrder(orderId: number): Promise<WorkLog[]> {
+  const response = await httpClient(`${BASE_URL}/api/work/log/${orderId}`)
+  return response.json()
+}
+
+// Create work log
+export async function createWorkLog(logData: WorkLogCreateRequest): Promise<WorkLog> {
+  const response = await httpClient(`${BASE_URL}/api/work/log/`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      workOrderId: logData.workOrderId,
+      autorId: logData.autorId,
+      logType: logData.logType,
+      note: logData.note,
+      hours: logData.hours || 0 // Always send a number, default to 0
+    })
+  })
+
+  const contentType = response.headers.get('content-type')
+  if (contentType && contentType.includes('application/json')) {
+    return response.json()
+  }
+  throw new Error('No JSON response received')
 }

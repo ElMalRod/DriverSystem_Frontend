@@ -5,9 +5,12 @@ import {
   getWorkOrdersByStatus,
   getAllWorkStatus,
   getMaintenanceTypes,
+  getAllWorkAssignments,
+  getWorkAssignmentsByOrder,
   WorkOrder,
   WorkStatus,
-  MaintenanceType
+  MaintenanceType,
+  WorkAssignment
 } from './api'
 
 export function useWorkOrders() {
@@ -161,5 +164,67 @@ export function useMaintenanceTypes() {
     loading,
     error,
     refetch: fetchMaintenanceTypes
+  }
+}
+
+export function useWorkAssignments() {
+  const [assignments, setAssignments] = useState<WorkAssignment[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const fetchAssignments = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      const data = await getAllWorkAssignments()
+      setAssignments(data)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error fetching work assignments')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchAssignments()
+  }, [])
+
+  return {
+    assignments,
+    loading,
+    error,
+    refetch: fetchAssignments
+  }
+}
+
+export function useWorkOrderAssignments(workOrderId?: number) {
+  const [assignments, setAssignments] = useState<WorkAssignment[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const fetchOrderAssignments = async (id: number) => {
+    try {
+      setLoading(true)
+      setError(null)
+      const data = await getWorkAssignmentsByOrder(id)
+      setAssignments(data)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error fetching order assignments')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (workOrderId) {
+      fetchOrderAssignments(workOrderId)
+    }
+  }, [workOrderId])
+
+  return {
+    assignments,
+    loading,
+    error,
+    fetchByOrder: fetchOrderAssignments
   }
 }
