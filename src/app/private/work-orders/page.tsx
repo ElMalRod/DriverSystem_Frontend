@@ -15,7 +15,8 @@ import {
   FaTools,
   FaSearch,
   FaUserTie,
-  FaExchangeAlt
+  FaExchangeAlt,
+  FaCheck
 } from "react-icons/fa"
 import { 
   getAllWorkOrders,
@@ -31,8 +32,9 @@ import WorkOrderDetailsModal from "@/features/work-orders/components/WorkOrderDe
 import ChangeStatusModal from "@/features/work-orders/components/ChangeStatusModal"
 import EditWorkOrderModal from "@/features/work-orders/components/EditWorkOrderModal"
 import WorkLogsModal from "@/features/work-orders/components/WorkLogsModal"
+import AuthorizeWorkModal from "@/features/work-orders/components/AuthorizeWorkModal"
+import ReassignWorkModal from "@/features/work-orders/components/ReassignWorkModal"
 
-// Declarar Swal como global
 declare global {
   interface Window {
     Swal: any;
@@ -49,20 +51,20 @@ export default function WorkOrdersPage() {
   const [selectedStatus, setSelectedStatus] = useState("")
   const [selectedType, setSelectedType] = useState("")
 
-  // Modal states
   const [assignModalOpen, setAssignModalOpen] = useState(false)
   const [detailsModalOpen, setDetailsModalOpen] = useState(false)
   const [editModalOpen, setEditModalOpen] = useState(false)
   const [statusModalOpen, setStatusModalOpen] = useState(false)
   const [logsModalOpen, setLogsModalOpen] = useState(false)
+  const [authorizeModalOpen, setAuthorizeModalOpen] = useState(false)
+  const [reassignModalOpen, setReassignModalOpen] = useState(false)
   const [selectedWorkOrder, setSelectedWorkOrder] = useState<WorkOrder | null>(null)
+  const [selectedAssignment, setSelectedAssignment] = useState<any>(null)
 
-  // Load initial data
   useEffect(() => {
     loadData()
   }, [])
 
-  // Filter work orders when search term or filters change
   useEffect(() => {
     filterWorkOrders()
   }, [workOrders, searchTerm, selectedStatus, selectedType])
@@ -96,7 +98,6 @@ export default function WorkOrdersPage() {
   const filterWorkOrders = () => {
     let filtered = [...workOrders]
 
-    // Filter by search term
     if (searchTerm.trim()) {
       const term = searchTerm.toLowerCase()
       filtered = filtered.filter(order => 
@@ -109,12 +110,10 @@ export default function WorkOrdersPage() {
       )
     }
 
-    // Filter by status
     if (selectedStatus) {
       filtered = filtered.filter(order => order.status === selectedStatus)
     }
 
-    // Filter by maintenance type
     if (selectedType) {
       filtered = filtered.filter(order => order.maintenanceType === selectedType)
     }
@@ -180,8 +179,24 @@ export default function WorkOrdersPage() {
   }
 
   const handleAssignmentUpdated = () => {
-    // Optionally reload work orders or show updated info
     loadData()
+  }
+
+  const handleAuthorizeWork = (workOrder: WorkOrder) => {
+    setSelectedWorkOrder(workOrder)
+    setAuthorizeModalOpen(true)
+  }
+
+  const handleReassignWork = (workOrder: WorkOrder, assignment: any) => {
+    setSelectedWorkOrder(workOrder)
+    setSelectedAssignment(assignment)
+    setReassignModalOpen(true)
+  }
+
+  const handleStatusChanged = (updatedWorkOrder: WorkOrder) => {
+    setWorkOrders(prev => 
+      prev.map(wo => wo.id === updatedWorkOrder.id ? updatedWorkOrder : wo)
+    )
   }
 
   if (loading) {
@@ -194,7 +209,6 @@ export default function WorkOrdersPage() {
 
   return (
     <div className="p-6 bg-gray-50 min-h-screen">
-      {/* Header */}
       <div className="mb-8">
         <div className="flex items-center gap-3 mb-4">
           <FaClipboardList className="text-3xl text-blue-600" />
@@ -203,10 +217,8 @@ export default function WorkOrdersPage() {
         <p className="text-gray-600">Gestión completa de órdenes de trabajo del taller</p>
       </div>
 
-      {/* Filters and Search */}
       <div className="bg-white rounded-lg shadow-md p-6 mb-6">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          {/* Search */}
           <div className="relative">
             <FaSearch className="absolute left-3 top-3.5 text-gray-400" />
             <input
@@ -218,7 +230,6 @@ export default function WorkOrdersPage() {
             />
           </div>
 
-          {/* Status Filter */}
           <select
             className="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             value={selectedStatus}
@@ -232,7 +243,6 @@ export default function WorkOrdersPage() {
             ))}
           </select>
 
-          {/* Type Filter */}
           <select
             className="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             value={selectedType}
@@ -246,7 +256,6 @@ export default function WorkOrdersPage() {
             ))}
           </select>
 
-          {/* Create Button */}
           <button className="bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2">
             <FaPlus />
             Nueva Orden
@@ -254,7 +263,6 @@ export default function WorkOrdersPage() {
         </div>
       </div>
 
-      {/* Work Orders Table */}
       <div className="bg-white rounded-lg shadow-md overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -372,6 +380,15 @@ export default function WorkOrdersPage() {
                       >
                         <FaExchangeAlt />
                       </button>
+                      {order.status === "No Authorized" && (
+                        <button 
+                          onClick={() => handleAuthorizeWork(order)}
+                          className="text-yellow-600 hover:text-yellow-900 p-1 rounded hover:bg-yellow-50"
+                          title="Autorizar trabajo"
+                        >
+                          <FaCheck />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -393,7 +410,6 @@ export default function WorkOrdersPage() {
         </div>
       </div>
 
-      {/* Assign Employee Modal */}
       {selectedWorkOrder && (
         <AssignEmployeeModal
           isOpen={assignModalOpen}
@@ -414,7 +430,6 @@ export default function WorkOrdersPage() {
         />
       )}
 
-      {/* Summary */}
       {workOrders.length > 0 && (
         <div className="mt-6 bg-white rounded-lg shadow-md p-6">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -444,7 +459,6 @@ export default function WorkOrdersPage() {
         </div>
       )}
 
-      {/* Work Order Details Modal */}
       <WorkOrderDetailsModal 
         isOpen={detailsModalOpen}
         onClose={() => setDetailsModalOpen(false)}
@@ -467,13 +481,11 @@ export default function WorkOrdersPage() {
         }}
       />
 
-      {/* Edit Work Order Modal */}
       <EditWorkOrderModal 
         isOpen={editModalOpen}
         onClose={() => setEditModalOpen(false)}
         workOrder={selectedWorkOrder}
         onWorkOrderUpdated={(updatedWorkOrder) => {
-          // Update the work order in the list
           setWorkOrders(prev => prev.map(wo => 
             wo.id === updatedWorkOrder.id ? updatedWorkOrder : wo
           ))
@@ -483,13 +495,11 @@ export default function WorkOrdersPage() {
         }}
       />
 
-      {/* Change Status Modal */}
       <ChangeStatusModal 
         isOpen={statusModalOpen}
         onClose={() => setStatusModalOpen(false)}
         workOrder={selectedWorkOrder}
         onStatusChanged={(updatedWorkOrder) => {
-          // Update the work order in the list
           setWorkOrders(prev => prev.map(wo => 
             wo.id === updatedWorkOrder.id ? updatedWorkOrder : wo
           ))
@@ -499,14 +509,30 @@ export default function WorkOrdersPage() {
         }}
       />
 
-      {/* Work Logs Modal */}
       <WorkLogsModal 
         isOpen={logsModalOpen}
         onClose={() => setLogsModalOpen(false)}
         workOrder={selectedWorkOrder}
         onLogCreated={(log) => {
-          // Optionally handle log created event
           console.log('Log created:', log)
+        }}
+      />
+
+      <AuthorizeWorkModal 
+        isOpen={authorizeModalOpen}
+        onClose={() => setAuthorizeModalOpen(false)}
+        workOrder={selectedWorkOrder}
+        onStatusChanged={handleStatusChanged}
+      />
+
+      <ReassignWorkModal 
+        isOpen={reassignModalOpen}
+        onClose={() => setReassignModalOpen(false)}
+        workOrder={selectedWorkOrder}
+        currentAssignment={selectedAssignment}
+        onReassigned={() => {
+          loadData() 
+          setReassignModalOpen(false)
         }}
       />
     </div>

@@ -61,7 +61,7 @@ export interface CreateVehicleRequest {
   modelId: number;
   color?: string;
   modelYear: number;
-  customerId?: number; // Nuevo campo opcional
+  customerId?: number; 
 }
 
 export interface VehicleResponse {
@@ -85,7 +85,6 @@ export interface UserVehicleResponse {
   vehicleResponse: VehicleResponse;
 }
 
-// Marcas de vehículos
 export async function getVehicleMakes(): Promise<VehicleMake[]> {
   const res = await fetch("/api/vehicle/makes/", {
     method: "GET",
@@ -125,7 +124,6 @@ export async function updateVehicleMake(make: { id: number; name: string }): Pro
   return res.json();
 }
 
-// Modelos de vehículos
 export async function getVehicleModels(): Promise<VehicleModel[]> {
   const res = await fetch("/api/vehicle/model/", {
     method: "GET",
@@ -177,7 +175,6 @@ export async function deleteVehicleModel(id: number): Promise<VehicleModel> {
   return res.json();
 }
 
-// Visitas de vehículos
 export async function getVehicleVisits(): Promise<VehicleVisitResponse[]> {
   const res = await fetch("/api/vehicle/visit", {
     method: "GET",
@@ -248,7 +245,6 @@ export async function updateVehicleVisitDeparture(id: number): Promise<void> {
   }
 }
 
-// Crear vehículo
 export async function createVehicle(vehicle: CreateVehicleRequest): Promise<VehicleResponse> {
   const res = await fetch("/api/vehicle/", {
     method: "POST",
@@ -340,14 +336,12 @@ export async function getUserVehicles(userId: number): Promise<UserVehicleRespon
     return Array.isArray(data) ? data : []
 
   } catch (error: any) {
-    // Si es un error 404, no lo mostramos como error en consola
     if (error.message && error.message.includes('HTTP 404')) {
       console.log(`[API] Client ${userId} has no vehicles (404)`)
     } else {
       console.error(`[API] Error:`, error)
     }
     
-    // Si el proxy falla, intentar directamente (solo para debug)
     if (window.location.hostname === 'localhost') {
       console.log('[API] Trying direct backend call as fallback...')
       try {
@@ -381,7 +375,7 @@ export async function unassignVehicleFromUser(userId: number, id: number): Promi
   }
 }
 
-// Actualizar estado de visita (temporal simple)
+// Actualizar estado de visita 
 export async function updateVisitStatus(id: number, status: string): Promise<VehicleVisitResponse | { message: string }> {
   console.log(`[API] Using simple proxy for visit ${id} status: ${status}`)
   
@@ -397,22 +391,18 @@ export async function updateVisitStatus(id: number, status: string): Promise<Veh
     throw new Error(`Error: ${errorText}`);
   }
   
-  // Verificar el tipo de contenido de la respuesta
   const contentType = res.headers.get('content-type');
   console.log(`[API] Response content-type: ${contentType}`)
   
   if (contentType && contentType.includes('application/json')) {
-    // Si la respuesta es JSON, parseamos normalmente
     return res.json()
   } else {
-    // Si la respuesta es texto plano (como cuando se cancela y elimina)
     const textResponse = await res.text();
     console.log(`[API] Text response: ${textResponse}`)
     
-    // Retornamos un objeto con el mensaje para mantener consistencia
     return { 
       message: textResponse,
-      status: status as any, // Mantenemos el status que se envió
+      status: status as any, 
       id: id
     }
   }

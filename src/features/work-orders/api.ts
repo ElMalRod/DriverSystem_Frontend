@@ -14,7 +14,6 @@ import {
   WorkAssignmentWithEmployeeInfo
 } from "@/entities/work-order"
 
-// Re-export types for convenience
 export type {
   WorkOrder,
   WorkOrderCreateRequest,
@@ -31,15 +30,12 @@ export type {
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
 
-// Get all work orders
-// Get all work orders
 export async function getAllWorkOrders(): Promise<WorkOrder[]> {
   try {
     const response = await httpClient(`${BASE_URL}/api/Work/order/`)
     const workOrdersData: WorkOrderApiResponse[] = await response.json()
     
-    // The backend now returns all the data we need, so we can map it directly
-    return workOrdersData.map((workOrderData): WorkOrder => ({
+    const workOrders = workOrdersData.map((workOrderData): WorkOrder => ({
       id: workOrderData.id,
       code: workOrderData.code,
       description: workOrderData.description,
@@ -50,11 +46,11 @@ export async function getAllWorkOrders(): Promise<WorkOrder[]> {
       status: workOrderData.status,
       customerId: workOrderData.customerId,
       vehicleId: workOrderData.vehicleId,
-      // Customer data from backend
+      // Cliente
       customer: workOrderData.customer,
       docNumberCustomer: workOrderData.docNumberCustomer,
       phoneCustomer: workOrderData.phoneCustomer,
-      // Vehicle data from backend
+      // vehiculo
       plate: workOrderData.plate,
       make: workOrderData.make,
       model: workOrderData.model,
@@ -63,56 +59,41 @@ export async function getAllWorkOrders(): Promise<WorkOrder[]> {
       vin: workOrderData.vin,
       createdBy: workOrderData.createdBy
     }))
+
+    // 🗂️ Sort by creation date - most recent first (descending order)
+    return workOrders.sort((a, b) => {
+      const dateA = new Date(a.openedAt).getTime()
+      const dateB = new Date(b.openedAt).getTime()
+      return dateB - dateA // Descending order (newest first)
+    })
   } catch (error) {
     console.error('Error getting all work orders:', error)
     throw error
   }
 }
 
-// Get work order by ID with details
 export async function getWorkOrderWithDetails(id: number): Promise<WorkOrder | null> {
   try {
-    const workOrderResponse = await httpClient(`${BASE_URL}/api/Work/order/{id}?id=${id}`)
-    const workOrderData: WorkOrderApiResponse = await workOrderResponse.json()
+    const allWorkOrders = await getAllWorkOrders()
+    const workOrder = allWorkOrders.find(wo => wo.id === id)
     
-    // Map the backend response directly to WorkOrder
-    return {
-      id: workOrderData.id,
-      code: workOrderData.code,
-      description: workOrderData.description,
-      estimatedHours: workOrderData.estimatedHours,
-      openedAt: workOrderData.openedAt,
-      closedAt: workOrderData.closedAt,
-      maintenanceType: workOrderData.maintenanceType as 'Corrective' | 'Preventive',
-      status: workOrderData.status,
-      customerId: workOrderData.customerId,
-      vehicleId: workOrderData.vehicleId,
-      // Customer data from backend
-      customer: workOrderData.customer,
-      docNumberCustomer: workOrderData.docNumberCustomer,
-      phoneCustomer: workOrderData.phoneCustomer,
-      // Vehicle data from backend
-      plate: workOrderData.plate,
-      make: workOrderData.make,
-      model: workOrderData.model,
-      modelYear: workOrderData.modelYear,
-      color: workOrderData.color,
-      vin: workOrderData.vin,
-      createdBy: workOrderData.createdBy
+    if (!workOrder) {
+      console.error(`Work order with ID ${id} not found`)
+      return null
     }
+    
+    return workOrder
   } catch (error) {
     console.error('Error getting work order details:', error)
     return null
   }
 }
 
-// Get work order by ID
 export async function getWorkOrderById(id: number): Promise<WorkOrderApiResponse> {
-  const response = await httpClient(`${BASE_URL}/api/Work/order/{id}?id=${id}`)
+  const response = await httpClient(`${BASE_URL}/api/Work/order/${id}?id=${id}`)
   return response.json()
 }
 
-// Create work order
 export async function createWorkOrder(workOrder: WorkOrderCreateRequest): Promise<any> {
   const response = await httpClient(`${BASE_URL}/api/Work/order/`, {
     method: 'POST',
@@ -121,13 +102,12 @@ export async function createWorkOrder(workOrder: WorkOrderCreateRequest): Promis
   return response.json()
 }
 
-// Update work order basic info
 export async function updateWorkOrderInfo(updateData: {
   id: number
   description: string
   estimatedHours: number | null
   typeId: number
-  workOrder: WorkOrder // Need the complete work order to send all required fields
+  workOrder: WorkOrder 
 }): Promise<any> {
   const response = await httpClient(`${BASE_URL}/api/Work/order/`, {
     method: 'PUT',
@@ -136,15 +116,15 @@ export async function updateWorkOrderInfo(updateData: {
     },
     body: JSON.stringify({
       id: updateData.id,
-      vehicleId: updateData.workOrder.vehicleId || 1, // Get from original work order
+      vehicleId: updateData.workOrder.vehicleId || 1, 
       customerId: updateData.workOrder.customerId,
       typeId: updateData.typeId,
       statusType: getStatusTypeFromString(updateData.workOrder.status),
       description: updateData.description,
       estimatedHours: updateData.estimatedHours,
       closedAt: updateData.workOrder.closedAt || null,
-      createdBy: 1, // TODO: Get from auth context
-      visitId: null // Optional field
+      createdBy: 1, 
+      visitId: null 
     })
   })
 
@@ -155,7 +135,6 @@ export async function updateWorkOrderInfo(updateData: {
   return null
 }
 
-// Helper function to convert status string to number
 function getStatusTypeFromString(status: string): number {
   const statusMapping: { [key: string]: number } = {
     'Created': 1,
@@ -170,28 +149,6 @@ function getStatusTypeFromString(status: string): number {
   return statusMapping[status] || 1
 }
 
-// Update work order status
-export async function updateWorkOrderStatus(id: number, statusType: number, comment?: string): Promise<any> {
-  const response = await httpClient(`${BASE_URL}/api/work/log/`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      workOrderId: id,
-      autorId: 1, // TODO: Get from auth context
-      logType: 'NOTE',
-      note: comment || `Estado cambiado a ${statusType}`,
-      hours: 0 // Always send 0 for status change logs
-    })
-  })
-
-  const contentType = response.headers.get('content-type')
-  if (contentType && contentType.includes('application/json')) {
-    return response.json()
-  }
-  return null
-}
 export async function updateWorkOrder(workOrder: WorkOrderCreateRequest): Promise<any> {
   const response = await httpClient(`${BASE_URL}/api/Work/order/`, {
     method: 'PUT',
@@ -200,7 +157,6 @@ export async function updateWorkOrder(workOrder: WorkOrderCreateRequest): Promis
   return response.json()
 }
 
-// Delete work order
 export async function deleteWorkOrder(id: number): Promise<any> {
   const response = await httpClient(`${BASE_URL}/api/Work/order/${id}`, {
     method: 'DELETE'
@@ -208,13 +164,11 @@ export async function deleteWorkOrder(id: number): Promise<any> {
   return response.json()
 }
 
-// Get work orders by status
 export async function getWorkOrdersByStatus(statusId: number): Promise<WorkOrder[]> {
   const response = await httpClient(`${BASE_URL}/api/Work/order/status/${statusId}`)
   return response.json()
 }
 
-// Get work orders by user and status
 export async function getWorkOrdersByUserAndStatus(request: WorkOrderViewRequest): Promise<WorkOrder[]> {
   const response = await httpClient(`${BASE_URL}/api/Work/order/view`, {
     method: 'POST',
@@ -223,7 +177,6 @@ export async function getWorkOrdersByUserAndStatus(request: WorkOrderViewRequest
   return response.json()
 }
 
-// Get work orders by vehicle and user
 export async function getWorkOrdersByVehicleAndUser(request: WorkOrderUserRequest): Promise<WorkOrder[]> {
   const response = await httpClient(`${BASE_URL}/api/Work/order/user`, {
     method: 'POST',
@@ -232,10 +185,7 @@ export async function getWorkOrdersByVehicleAndUser(request: WorkOrderUserReques
   return response.json()
 }
 
-// Get all work status
 export async function getAllWorkStatus(): Promise<WorkStatus[]> {
-  // Esta función necesitará ser implementada cuando tengas el endpoint
-  // Por ahora retorno los estados predeterminados
   return [
     { id: 1, code: 'CREATED', name: 'Created' },
     { id: 2, code: 'ASSIGNED', name: 'Assigned' },
@@ -248,22 +198,18 @@ export async function getAllWorkStatus(): Promise<WorkStatus[]> {
   ]
 }
 
-// Get maintenance types
 export async function getMaintenanceTypes(): Promise<MaintenanceType[]> {
-  // Esta función necesitará ser implementada cuando tengas el endpoint
   return [
     { id: 1, code: 'CORRECTIVE', name: 'Corrective' },
     { id: 2, code: 'PREVENTIVE', name: 'Preventive' }
   ]
 }
 
-// Work assignments (will need endpoints)
 export async function getWorkAssignments(workOrderId: number): Promise<WorkAssignment[]> {
   // Pendiente implementar cuando tengas el endpoint
   throw new Error('Endpoint not implemented yet')
 }
 
-// Work logs (will need endpoints)
 export async function getWorkLogs(workOrderId: number): Promise<WorkLog[]> {
   // Pendiente implementar cuando tengas el endpoint
   throw new Error('Endpoint not implemented yet')
@@ -273,30 +219,161 @@ export async function getWorkLogs(workOrderId: number): Promise<WorkLog[]> {
 // WORK ASSIGNMENTS API
 // =============================================================================
 
-// Get all work assignments
 export async function getAllWorkAssignments(): Promise<WorkAssignment[]> {
   const response = await httpClient(`${BASE_URL}/api/work/assignment/`)
   return response.json()
 }
 
-// Create work assignment
+export async function checkEmployeeAvailability(employeeId: number): Promise<{
+  isAvailable: boolean;
+  activeAssignments: WorkAssignment[];
+  activeWorkOrders: string[];
+}> {
+  try {
+    const allAssignments = await getAllWorkAssignments()
+    const employeeAssignments = allAssignments.filter(
+      assignment => assignment.assigneeId === employeeId && !assignment.releasedAt
+    )
+    
+    if (employeeAssignments.length === 0) {
+      return {
+        isAvailable: true,
+        activeAssignments: [],
+        activeWorkOrders: []
+      }
+    }
+
+    const allWorkOrders = await getAllWorkOrders()
+    
+    const activeStates = ['Created', 'Assigned', 'In Progress', 'On Hold']
+    const activeAssignments = []
+    const activeWorkOrderCodes = []
+
+    for (const assignment of employeeAssignments) {
+      const workOrder = allWorkOrders.find(wo => wo.id === assignment.workOrderId)
+      if (workOrder && activeStates.includes(workOrder.status)) {
+        activeAssignments.push(assignment)
+        activeWorkOrderCodes.push(workOrder.code)
+      }
+    }
+
+    return {
+      isAvailable: activeAssignments.length === 0,
+      activeAssignments: activeAssignments,
+      activeWorkOrders: activeWorkOrderCodes
+    }
+  } catch (error) {
+    console.error('Error checking employee availability:', error)
+    return {
+      isAvailable: false,
+      activeAssignments: [],
+      activeWorkOrders: []
+    }
+  }
+}
+
+export async function getAvailableEmployees(): Promise<{
+  availableEmployees: number[];
+  employeeWorkload: { [employeeId: number]: number };
+}> {
+  try {
+    const allAssignments = await getAllWorkAssignments()
+    const allWorkOrders = await getAllWorkOrders()
+    
+    const activeStates = ['Created', 'Assigned', 'In Progress', 'On Hold']
+    const activeWorkOrders = allWorkOrders.filter(wo => activeStates.includes(wo.status))
+    
+    const employeeWorkload: { [employeeId: number]: number } = {}
+    const occupiedEmployees = new Set<number>()
+    
+    for (const assignment of allAssignments) {
+      if (!assignment.releasedAt) {
+        const workOrder = activeWorkOrders.find(wo => wo.id === assignment.workOrderId)
+        if (workOrder) {
+          employeeWorkload[assignment.assigneeId] = (employeeWorkload[assignment.assigneeId] || 0) + 1
+          occupiedEmployees.add(assignment.assigneeId)
+        }
+      }
+    }
+    
+    const allEmployeeIds = Array.from(new Set(allAssignments.map(a => a.assigneeId)))
+    const availableEmployees = allEmployeeIds.filter(id => !occupiedEmployees.has(id))
+    
+    return {
+      availableEmployees,
+      employeeWorkload
+    }
+  } catch (error) {
+    console.error('Error getting available employees:', error)
+    return {
+      availableEmployees: [],
+      employeeWorkload: {}
+    }
+  }
+}
+
+export async function reassignWorkOrder(
+  workOrderId: number, 
+  fromEmployeeId: number, 
+  toEmployeeId: number,
+  reason?: string
+): Promise<boolean> {
+  try {
+    const allAssignments = await getAllWorkAssignments()
+    const currentAssignment = allAssignments.find(
+      a => a.workOrderId === workOrderId && a.assigneeId === fromEmployeeId && !a.releasedAt
+    )
+    
+    if (!currentAssignment) {
+      throw new Error('No active assignment found for this work order and employee')
+    }
+
+    await deleteWorkAssignment(currentAssignment.id)
+    
+    const newAssignmentData: WorkAssignmentCreateRequest = {
+      workOrderId: workOrderId,
+      assigneeId: toEmployeeId,
+      role: 2, // empleado
+      assignedAt: new Date().toISOString()
+    }
+    
+    await createWorkAssignment(newAssignmentData)
+    
+    if (reason) {
+      try {
+        await createWorkLog({
+          workOrderId: workOrderId,
+          autorId: 1, // TODO: Get actual user ID from session
+          logType: "NOTE",
+          note: `Work reassigned from employee ${fromEmployeeId} to ${toEmployeeId}. Reason: ${reason}`,
+          hours: 0
+        })
+      } catch (logError) {
+        console.warn('Failed to create reassignment log:', logError)
+      }
+    }
+
+    return true
+  } catch (error) {
+    console.error('Error reassigning work order:', error)
+    throw error
+  }
+}
+
 export async function createWorkAssignment(assignment: WorkAssignmentCreateRequest): Promise<any> {
   const response = await httpClient(`${BASE_URL}/api/work/assignment/`, {
     method: 'POST',
     body: JSON.stringify(assignment)
   })
   
-  // Check if response has content before trying to parse JSON
   const contentType = response.headers.get('content-type')
   if (contentType && contentType.includes('application/json')) {
     return response.json()
   } else {
-    // If no JSON content, just return success status
     return { success: response.ok }
   }
 }
 
-// Update work assignment
 export async function updateWorkAssignment(assignment: WorkAssignmentCreateRequest): Promise<any> {
   const response = await httpClient(`${BASE_URL}/api/work/assignment/`, {
     method: 'PUT',
@@ -305,42 +382,140 @@ export async function updateWorkAssignment(assignment: WorkAssignmentCreateReque
   return response.json()
 }
 
-// Delete work assignment
+export async function updateWorkOrderStatus(
+  workOrderId: number, 
+  newStatus: number, 
+  comment?: string
+): Promise<WorkOrder> {
+  try {
+    console.log('🔍 Starting updateWorkOrderStatus for ID:', workOrderId, 'New Status:', newStatus)
+
+    // Get current work order data from API directly (this gives us the raw data needed for PUT)
+    const apiResponse = await httpClient(`${BASE_URL}/api/Work/order/${workOrderId}?id=${workOrderId}`)
+    const apiData = await apiResponse.json()
+    
+    if (!apiData) {
+      throw new Error(`Work order with ID ${workOrderId} not found`)
+    }
+
+    console.log('📋 Current work order API data:', apiData)
+
+    const statusMap: { [key: number]: string } = {
+      1: 'Created',
+      2: 'Assigned', 
+      3: 'In Progress',
+      4: 'On Hold',
+      5: 'Completed',
+      6: 'Cancelled',
+      7: 'Closed',
+      8: 'No Authorized'
+    }
+
+    const statusString = statusMap[newStatus]
+    if (!statusString) {
+      throw new Error(`Invalid status code: ${newStatus}`)
+    }
+
+    console.log('🎯 Changing status to:', statusString, '(', newStatus, ')')
+
+    // Use the exact data structure from the API response for the PUT
+    const updateData = {
+      id: apiData.id,
+      vehicleId: apiData.vehicleId,
+      customerId: apiData.customerId,
+      typeId: apiData.typeId,
+      statusType: newStatus, // This is the only field we're changing
+      description: apiData.description,
+      estimatedHours: apiData.estimatedHours,
+      closedAt: (newStatus === 5 || newStatus === 7) ? new Date().toISOString() : apiData.closedAt,
+      createdBy: apiData.createdBy,
+      visitId: apiData.visitId
+    }
+
+    console.log('📤 Update payload:', JSON.stringify(updateData, null, 2))
+
+    const response = await httpClient(`${BASE_URL}/api/Work/order/`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(updateData)
+    })
+
+    console.log('📡 Update response status:', response.status)
+
+    if (!response.ok) {
+      const errorData = await response.text()
+      console.error('❌ Update error response:', errorData)
+      throw new Error(`HTTP error! status: ${response.status}, details: ${errorData}`)
+    }
+
+    console.log('✅ Status update successful!')
+
+    // Create work log if comment is provided
+    if (comment) {
+      try {
+        console.log('📝 Creating work log...')
+        await createWorkLog({
+          workOrderId: workOrderId,
+          autorId: 1, // TODO: Get actual user ID from session
+          logType: "PROGRESS",
+          note: `${comment} - Status changed to: ${statusString}`,
+          hours: 0
+        })
+      } catch (logError) {
+        console.warn('⚠️ Failed to create work log:', logError)
+      }
+    }
+
+    // Return the updated work order
+    const updatedWorkOrder = await getWorkOrderWithDetails(workOrderId)
+    if (updatedWorkOrder) {
+      console.log('🔄 Returning updated work order')
+      return updatedWorkOrder
+    }
+
+    // Fallback: return work order with updated status using API data
+    const currentWorkOrderFormatted = await getWorkOrderWithDetails(workOrderId)
+    return {
+      ...currentWorkOrderFormatted!,
+      status: statusString,
+      closedAt: updateData.closedAt || currentWorkOrderFormatted?.closedAt
+    }
+  } catch (error) {
+    console.error('❌ Error updating work order status:', error)
+    throw error
+  }
+}
+
 export async function deleteWorkAssignment(id: number): Promise<any> {
   const response = await httpClient(`${BASE_URL}/api/work/assignment/${id}`, {
     method: 'DELETE'
   })
   
-  // Check if response has content before trying to parse JSON
   const contentType = response.headers.get('content-type')
   if (contentType && contentType.includes('application/json')) {
     return response.json()
   } else {
-    // If no JSON content, just return success status
     return { success: response.ok }
   }
 }
 
-// Get assignments for a specific work order
 export async function getWorkAssignmentsByOrder(workOrderId: number): Promise<WorkAssignment[]> {
   const response = await getAllWorkAssignments()
   return response.filter(assignment => assignment.workOrderId === workOrderId)
 }
 
-// Work Log Functions
-// Get all work logs
 export async function getAllWorkLogs(): Promise<WorkLog[]> {
   const response = await httpClient(`${BASE_URL}/api/work/log/`)
   return response.json()
 }
 
-// Get work logs by order ID
 export async function getWorkLogsByOrder(orderId: number): Promise<WorkLog[]> {
   const response = await httpClient(`${BASE_URL}/api/work/log/${orderId}`)
   return response.json()
 }
 
-// Create work log
 export async function createWorkLog(logData: WorkLogCreateRequest): Promise<WorkLog> {
   const response = await httpClient(`${BASE_URL}/api/work/log/`, {
     method: 'POST',
@@ -352,7 +527,7 @@ export async function createWorkLog(logData: WorkLogCreateRequest): Promise<Work
       autorId: logData.autorId,
       logType: logData.logType,
       note: logData.note,
-      hours: logData.hours || 0 // Always send a number, default to 0
+      hours: logData.hours || 0 
     })
   })
 

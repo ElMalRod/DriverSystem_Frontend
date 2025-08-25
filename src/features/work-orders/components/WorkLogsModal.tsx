@@ -61,7 +61,6 @@ export default function WorkLogsModal({
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [mounted, setMounted] = useState(false)
 
-  // Form state
   const [formData, setFormData] = useState<{
     logType: WorkLog['logType'] | ''
     note: string
@@ -72,13 +71,11 @@ export default function WorkLogsModal({
     hours: ''
   })
 
-  // Ensure component is mounted (for portal)
   useEffect(() => {
     setMounted(true)
     return () => setMounted(false)
   }, [])
 
-  // Load data when modal opens
   useEffect(() => {
     if (isOpen && workOrder) {
       loadLogs()
@@ -86,7 +83,6 @@ export default function WorkLogsModal({
     }
   }, [isOpen, workOrder])
 
-  // Reset form when modal closes
   useEffect(() => {
     if (!isOpen) {
       setShowCreateForm(false)
@@ -207,14 +203,11 @@ export default function WorkLogsModal({
 
       const newLog = await createWorkLog(logData)
       
-      // Add to logs list
       setLogs(prev => [newLog, ...prev])
 
-      // Reset form
       setFormData({ logType: '', note: '', hours: '' })
       setShowCreateForm(false)
 
-      // Show success message
       if (window.Swal) {
         window.Swal.fire({
           title: 'Log Creado',
@@ -234,7 +227,6 @@ export default function WorkLogsModal({
         })
       }
 
-      // Notify parent
       if (onLogCreated) {
         onLogCreated(newLog)
       }
@@ -271,16 +263,13 @@ export default function WorkLogsModal({
       style={{ zIndex: 9999 }}
       data-modal="work-logs"
     >
-      {/* Backdrop */}
       <div 
         className="absolute inset-0 bg-black bg-opacity-50" 
         onClick={onClose}
         style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
       ></div>
       
-      {/* Modal Content */}
       <div className="relative bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl z-10">
-        {/* Header */}
         <div className="flex items-center justify-between p-6 border-b bg-white">
           <div className="flex items-center gap-3">
             <FaClipboardList className="text-2xl text-indigo-600" />
@@ -311,13 +300,11 @@ export default function WorkLogsModal({
         </div>
 
         <div className="p-6 bg-white">
-          {/* Create Form */}
           {showCreateForm && (
             <div className="mb-6 p-4 bg-gray-50 rounded-lg border">
               <h3 className="text-lg font-medium text-gray-800 mb-4">Crear Nuevo Log</h3>
               
               <div className="space-y-4">
-                {/* Log Type */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Tipo de Log *
@@ -343,7 +330,6 @@ export default function WorkLogsModal({
                   </div>
                 </div>
 
-                {/* Note */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Nota *
@@ -362,7 +348,6 @@ export default function WorkLogsModal({
                   </p>
                 </div>
 
-                {/* Hours */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Horas Trabajadas
@@ -382,7 +367,6 @@ export default function WorkLogsModal({
                   </p>
                 </div>
 
-                {/* Actions */}
                 <div className="flex justify-end gap-3 pt-4 border-t">
                   <button
                     onClick={() => setShowCreateForm(false)}
@@ -413,7 +397,6 @@ export default function WorkLogsModal({
             </div>
           )}
 
-          {/* Logs List */}
           <div>
             <h3 className="text-lg font-medium text-gray-800 mb-4">
               Historial de Logs ({logs.length})
@@ -471,7 +454,6 @@ export default function WorkLogsModal({
           </div>
         </div>
 
-        {/* Footer */}
         <div className="flex justify-end gap-3 p-6 border-t bg-gray-50">
           <button
             onClick={onClose}
@@ -484,7 +466,6 @@ export default function WorkLogsModal({
     </div>
   )
 
-  // Use portal to render modal at document body level
   return typeof document !== 'undefined' 
     ? createPortal(modalContent, document.body)
     : null

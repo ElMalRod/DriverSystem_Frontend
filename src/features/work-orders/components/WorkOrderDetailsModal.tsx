@@ -60,13 +60,11 @@ export default function WorkOrderDetailsModal({
   const [assignmentsLoading, setAssignmentsLoading] = useState(false)
   const [mounted, setMounted] = useState(false)
 
-  // Ensure component is mounted (for portal)
   useEffect(() => {
     setMounted(true)
     return () => setMounted(false)
   }, [])
 
-  // Load data when modal opens
   useEffect(() => {
     if (isOpen && workOrderId) {
       loadWorkOrderDetails()
@@ -122,7 +120,6 @@ export default function WorkOrderDetailsModal({
   const loadEmployees = async () => {
     try {
       const allUsers = await getUsers()
-      // Filter only employees
       const employeeUsers = allUsers.filter(user => 
         user.roleName === 'EMPLOYEE' || 
         user.roleName === 'Employee' ||
@@ -205,16 +202,13 @@ export default function WorkOrderDetailsModal({
       style={{ zIndex: 9999 }}
       data-modal="work-order-details"
     >
-      {/* Backdrop */}
       <div 
         className="absolute inset-0 bg-black bg-opacity-50" 
         onClick={onClose}
         style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
       ></div>
       
-      {/* Modal Content */}
       <div className="relative bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl z-10">
-        {/* Header */}
         <div className="flex items-center justify-between p-6 border-b bg-white">
           <div className="flex items-center gap-3">
             <FaClipboardList className="text-2xl text-blue-600" />
@@ -241,9 +235,7 @@ export default function WorkOrderDetailsModal({
             </div>
           ) : workOrder ? (
             <div className="space-y-6">
-              {/* Basic Info */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Left Column - Work Order Info */}
                 <div className="space-y-4">
                   <div className="bg-gray-50 rounded-lg p-4">
                     <h3 className="text-lg font-semibold text-gray-800 mb-3 flex items-center gap-2">
@@ -300,7 +292,6 @@ export default function WorkOrderDetailsModal({
                     </div>
                   </div>
 
-                  {/* Description */}
                   {workOrder.description && (
                     <div className="bg-gray-50 rounded-lg p-4">
                       <h4 className="font-medium text-gray-700 mb-2 flex items-center gap-2">
@@ -312,9 +303,7 @@ export default function WorkOrderDetailsModal({
                   )}
                 </div>
 
-                {/* Right Column - Customer & Vehicle */}
                 <div className="space-y-4">
-                  {/* Customer Info */}
                   <div className="bg-gray-50 rounded-lg p-4">
                     <h3 className="text-lg font-semibold text-gray-800 mb-3 flex items-center gap-2">
                       <FaUser className="text-green-600" />
@@ -343,7 +332,6 @@ export default function WorkOrderDetailsModal({
                     </div>
                   </div>
 
-                  {/* Vehicle Info */}
                   <div className="bg-gray-50 rounded-lg p-4">
                     <h3 className="text-lg font-semibold text-gray-800 mb-3 flex items-center gap-2">
                       <FaCar className="text-orange-600" />
@@ -378,7 +366,6 @@ export default function WorkOrderDetailsModal({
                 </div>
               </div>
 
-              {/* Assigned Employees */}
               <div className="bg-gray-50 rounded-lg p-4">
                 <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
                   <FaUserTie className="text-purple-600" />
@@ -419,7 +406,6 @@ export default function WorkOrderDetailsModal({
                 )}
               </div>
 
-              {/* Action Buttons */}
               <div className="flex flex-wrap gap-3 pt-4 border-t">
                 <button
                   onClick={handleEdit}
@@ -462,7 +448,6 @@ export default function WorkOrderDetailsModal({
           )}
         </div>
 
-        {/* Footer */}
         <div className="flex justify-end gap-3 p-6 border-t bg-gray-50">
           <button
             onClick={onClose}
@@ -475,7 +460,6 @@ export default function WorkOrderDetailsModal({
     </div>
   )
 
-  // Use portal to render modal at document body level
   return typeof document !== 'undefined' 
     ? createPortal(modalContent, document.body)
     : null

@@ -20,7 +20,9 @@ export function RegisterForm() {
     const data = {
       email: formData.get('email') as string,
       password: formData.get('password') as string,
-      name: formData.get('name') as string
+      first_name: formData.get('first_name') as string,
+      last_name: formData.get('last_name') as string,
+      phone: formData.get('phone') as string
     }
 
     try {
@@ -31,7 +33,7 @@ export function RegisterForm() {
           id: response.userId || response.id,
           email: data.email,
           rol: response.role || response.rol,
-          name: data.name
+          name: `${data.first_name} ${data.last_name}`
         }))
         
         const targetRoute = response.role ? homeByRole(response.role) : '/private/dashboard'
@@ -47,9 +49,25 @@ export function RegisterForm() {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <input 
-        name="name" 
+        name="first_name" 
         type="text" 
-        placeholder="Nombre completo" 
+        placeholder="Nombre" 
+        required 
+        className="w-full border p-2 rounded" 
+        disabled={loading}
+      />
+      <input 
+        name="last_name" 
+        type="text" 
+        placeholder="Apellido" 
+        required 
+        className="w-full border p-2 rounded" 
+        disabled={loading}
+      />
+      <input 
+        name="phone" 
+        type="tel" 
+        placeholder="Teléfono" 
         required 
         className="w-full border p-2 rounded" 
         disabled={loading}

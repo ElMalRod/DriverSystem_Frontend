@@ -37,7 +37,6 @@ declare global {
   }
 }
 
-// Especialidades disponibles
 const SPECIALTIES = [
   { value: 'ELECTRICAL', label: 'Electricista Automotriz' },
   { value: 'AC', label: 'Aire Acondicionado' },
@@ -56,7 +55,6 @@ export default function SpecialistsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   
-  // Estado para manejar especialidades desde el frontend
   const [specialistDetails, setSpecialistDetails] = useState<{[key: string]: {
     specialty: string,
     hourlyRate: number,
@@ -64,17 +62,14 @@ export default function SpecialistsPage() {
     certifications: string
   }}>({})
   
-  // Search and filters
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("")
   const [specialtyFilter, setSpecialtyFilter] = useState("")
   
-  // Modals
   const [showCreateSpecialist, setShowCreateSpecialist] = useState(false)
   const [showEditSpecialist, setShowEditSpecialist] = useState(false)
   const [selectedSpecialist, setSelectedSpecialist] = useState<User | null>(null)
   
-  // Form data
   const [formData, setFormData] = useState({
     id: 0,
     email: "",
@@ -98,7 +93,6 @@ export default function SpecialistsPage() {
     loadSpecialistDetails()
   }, [])
 
-  // Cargar detalles de especialistas desde localStorage
   function loadSpecialistDetails() {
     try {
       const saved = localStorage.getItem('specialistDetails')
@@ -110,7 +104,6 @@ export default function SpecialistsPage() {
     }
   }
 
-  // Guardar detalles de especialistas en localStorage
   function saveSpecialistDetails(details: typeof specialistDetails) {
     try {
       localStorage.setItem('specialistDetails', JSON.stringify(details))
@@ -133,7 +126,6 @@ export default function SpecialistsPage() {
       setAllUsers(usersData)
       setRoles(rolesData)
       
-      // Filtrar solo especialistas - ser más flexible con los nombres de roles
       const specialistsData = usersData.filter(user => 
         user.roleName === "SPECIALIST" || 
         user.roleName === "Specialist" || 
@@ -143,7 +135,6 @@ export default function SpecialistsPage() {
       )
       setSpecialists(specialistsData)
       
-      // Migrar claves temporales a claves reales con IDs
       const updatedDetails = { ...specialistDetails }
       let hasUpdates = false
       
@@ -160,7 +151,6 @@ export default function SpecialistsPage() {
         saveSpecialistDetails(updatedDetails)
       }
       
-      // Debug: mostrar todos los usuarios y sus roles para debugging
       console.log('[SPECIALISTS] All users:', usersData.map(u => ({ id: u.id, name: u.name, roleName: u.roleName })))
       console.log('[SPECIALISTS] All roles:', rolesData)
       console.log('[SPECIALISTS] Filtered specialists:', specialistsData)
@@ -189,19 +179,17 @@ export default function SpecialistsPage() {
     try {
       setLoading(true)
       
-      // Buscar el rol de especialista
       const specialistRole = roles.find(role => role.code === "SPECIALIST")
       if (!specialistRole) {
         throw new Error("Rol de especialista no encontrado")
       }
 
-      // Crear el usuario
       const newUserData: CreateUserRequest = {
         email: formData.email,
         userName: formData.userName || formData.email,
         docNumber: formData.docNumber,
         phoneNumber: formData.phoneNumber,
-        passwordHash: formData.password, // El backend manejará el hash
+        passwordHash: formData.password, 
         userType: formData.userType,
         name: formData.name,
         role: specialistRole.id,
@@ -210,10 +198,8 @@ export default function SpecialistsPage() {
 
       await createUser(newUserData)
       
-      // Guardar detalles del especialista en localStorage
       const updatedDetails = {
         ...specialistDetails,
-        // Usamos el email como clave temporal hasta obtener el ID real
         [`temp_${formData.email}`]: {
           specialty: formData.specialty,
           hourlyRate: formData.hourlyRate,
@@ -233,7 +219,6 @@ export default function SpecialistsPage() {
         })
       }
 
-      // Recargar datos y cerrar modal
       await loadData()
       resetForm()
       setShowCreateSpecialist(false)
@@ -268,7 +253,7 @@ export default function SpecialistsPage() {
         userName: formData.userName,
         docNumber: formData.docNumber,
         phoneNumber: formData.phoneNumber,
-        passwordHash: formData.password || selectedSpecialist.userName, // Si no se cambió la contraseña
+        passwordHash: formData.password || selectedSpecialist.userName, // si no se cambio la contraseña
         userType: formData.userType,
         name: formData.name,
         role: formData.role,
@@ -277,7 +262,6 @@ export default function SpecialistsPage() {
 
       await updateUserData(updateData)
       
-      // Guardar detalles del especialista en localStorage
       const updatedDetails = {
         ...specialistDetails,
         [selectedSpecialist.id.toString()]: {
@@ -321,7 +305,6 @@ export default function SpecialistsPage() {
   function openEditModal(specialist: User) {
     setSelectedSpecialist(specialist)
     
-    // Cargar detalles desde localStorage
     const detailsKey = specialist.id.toString()
     const tempKey = `temp_${specialist.email}`
     const details = specialistDetails[detailsKey] || specialistDetails[tempKey]
@@ -385,12 +368,10 @@ export default function SpecialistsPage() {
   async function handleViewSpecialistDetails(specialist: User) {
     if (!window.Swal) return
 
-    // Obtener datos del especialista desde localStorage
     const detailsKey = specialist.id.toString()
     const tempKey = `temp_${specialist.email}`
     const details = specialistDetails[detailsKey] || specialistDetails[tempKey]
     
-    // Datos por defecto si no se encuentran
     const experience = details?.experience || 0
     const specialty = SPECIALTIES.find(s => s.value === details?.specialty) || SPECIALTIES[0]
     const hourlyRate = details?.hourlyRate || 0
@@ -461,7 +442,6 @@ export default function SpecialistsPage() {
     resetForm()
   }
 
-  // Filter specialists
   const filteredSpecialists = specialists.filter(specialist => {
     const matchesSearch = searchTerm === "" || 
       specialist.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -472,7 +452,6 @@ export default function SpecialistsPage() {
       (statusFilter === "active" && specialist.is_active) ||
       (statusFilter === "inactive" && !specialist.is_active)
 
-    // Filtro por especialidad usando localStorage
     const matchesSpecialty = specialtyFilter === "" || (() => {
       const detailsKey = specialist.id.toString()
       const tempKey = `temp_${specialist.email}`
@@ -492,7 +471,6 @@ export default function SpecialistsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold text-[var(--color-dark)]">
@@ -513,7 +491,6 @@ export default function SpecialistsPage() {
         </div>
       </div>
 
-      {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="bg-white border border-gray-200 rounded-lg p-6">
           <div className="flex items-center justify-between">
@@ -556,10 +533,8 @@ export default function SpecialistsPage() {
         </div>
       </div>
 
-      {/* Filters */}
       <div className="bg-white rounded-lg shadow-md p-6">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* Search */}
           <div className="relative">
             <FaSearch className="absolute left-3 top-3.5 text-gray-400" />
             <input
@@ -571,7 +546,6 @@ export default function SpecialistsPage() {
             />
           </div>
 
-          {/* Status Filter */}
           <select
             className="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             value={statusFilter}
@@ -582,7 +556,6 @@ export default function SpecialistsPage() {
             <option value="inactive">Solo inactivos</option>
           </select>
 
-          {/* Specialty Filter */}
           <select
             className="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             value={specialtyFilter}
@@ -598,7 +571,6 @@ export default function SpecialistsPage() {
         </div>
       </div>
 
-      {/* Specialists Table */}
       <div className="bg-white rounded-lg shadow-md overflow-hidden">
         {loading ? (
           <div className="text-center py-8">
@@ -752,7 +724,6 @@ export default function SpecialistsPage() {
         )}
       </div>
 
-      {/* Create Specialist Modal */}
       {showCreateSpecialist && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">

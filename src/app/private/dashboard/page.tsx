@@ -19,7 +19,6 @@ export default function DashboardPage() {
       <p className="text-sm text-gray-600 mt-2">
         Selecciona una opción del menú lateral para empezar.
       </p>
-      {/* aquí puedes poner cards/resúmenes por rol */}
     </div>
   )
 }

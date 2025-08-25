@@ -16,6 +16,8 @@ import {
   createWorkAssignment, 
   deleteWorkAssignment,
   getWorkAssignmentsByOrder,
+  checkEmployeeAvailability,
+  updateWorkOrderStatus,
   WorkAssignment,
   WorkAssignmentCreateRequest
 } from "../api"
@@ -57,13 +59,11 @@ export default function AssignEmployeeModal({
   const [saving, setSaving] = useState(false)
   const [mounted, setMounted] = useState(false)
 
-  // Ensure component is mounted (for portal)
   useEffect(() => {
     setMounted(true)
     return () => setMounted(false)
   }, [])
 
-  // Load data when modal opens
   useEffect(() => {
     if (isOpen) {
       loadEmployees()
@@ -75,7 +75,6 @@ export default function AssignEmployeeModal({
     try {
       setLoading(true)
       const allUsers = await getUsers()
-      // Filter only employees - assuming role name or code indicates employee
       const employeeUsers = allUsers.filter(user => 
         user.roleName === 'EMPLOYEE' || 
         user.roleName === 'Employee' ||
@@ -140,7 +139,6 @@ export default function AssignEmployeeModal({
       return
     }
 
-    // Check if employee is already assigned
     const alreadyAssigned = currentAssignments.some(
       assignment => assignment.assigneeId === selectedEmployeeId && !assignment.releasedAt
     )
@@ -167,23 +165,73 @@ export default function AssignEmployeeModal({
 
     try {
       setSaving(true)
+      
+      const availability = await checkEmployeeAvailability(selectedEmployeeId)
+      
+      if (!availability.isAvailable) {
+        const employeeName = getEmployeeName(selectedEmployeeId)
+        if (window.Swal) {
+          const result = await window.Swal.fire({
+            title: 'Empleado No Disponible',
+            html: `
+              <div class="text-left">
+                <p><strong>${employeeName}</strong> está actualmente asignado a:</p>
+                <ul class="list-disc list-inside mt-2 text-sm">
+                  ${availability.activeWorkOrders.map(code => `<li>${code}</li>`).join('')}
+                </ul>
+                <br>
+                <p class="text-sm text-gray-600">¿Deseas asignarlo de todas formas? Esto podría sobrecargar al empleado.</p>
+              </div>
+            `,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Asignar de todas formas',
+            cancelButtonText: 'Cancelar',
+            confirmButtonColor: '#f59e0b',
+            cancelButtonColor: '#6b7280',
+            customClass: {
+              container: 'swal-high-zindex'
+            },
+            didOpen: () => {
+              const swalContainer = document.querySelector('.swal2-container')
+              if (swalContainer) {
+                (swalContainer as HTMLElement).style.zIndex = '99999'
+              }
+            }
+          })
+          
+          if (!result.isConfirmed) {
+            setSaving(false)
+            return
+          }
+        }
+      }
 
       const assignmentData: WorkAssignmentCreateRequest = {
         workOrderId: workOrder.id,
         assigneeId: selectedEmployeeId,
-        role: 2, // Assuming role ID 2 is EMPLOYEE, adjust as needed
+        role: 2, //empleado
         assignedAt: new Date().toISOString()
       }
 
       await createWorkAssignment(assignmentData)
 
-      // Show success message
+      // 🎯 AUTO-ASSIGN STATUS: Automatically change status to "Assigned" when employee is assigned
+      try {
+        console.log('🔄 Auto-changing status to Assigned after employee assignment')
+        await updateWorkOrderStatus(workOrder.id, 2) // 2 = "Assigned"
+        console.log('✅ Status automatically changed to Assigned')
+      } catch (statusError) {
+        console.warn('⚠️ Assignment successful but failed to update status:', statusError)
+        // Don't fail the whole operation if status update fails
+      }
+
       if (window.Swal) {
         window.Swal.fire({
           title: '¡Éxito!',
-          text: 'Empleado asignado correctamente',
+          text: 'Empleado asignado correctamente y estado actualizado a "Assigned"',
           icon: 'success',
-          timer: 4000, // Increased from 2000 to 4000ms
+          timer: 4000, 
           showConfirmButton: false,
           customClass: {
             container: 'swal-high-zindex'
@@ -197,13 +245,10 @@ export default function AssignEmployeeModal({
         })
       }
 
-      // Reload assignments
       await loadCurrentAssignments()
       
-      // Reset selection
       setSelectedEmployeeId(0)
 
-      // Notify parent component
       if (onAssignmentUpdated) {
         onAssignmentUpdated()
       }
@@ -227,7 +272,6 @@ export default function AssignEmployeeModal({
         })
       }
       
-      // Still try to reload assignments in case the assignment was actually created
       try {
         await loadCurrentAssignments()
         setSelectedEmployeeId(0)
@@ -256,7 +300,6 @@ export default function AssignEmployeeModal({
         container: 'swal-high-zindex'
       },
       didOpen: () => {
-        // Force higher z-index with CSS
         const swalContainer = document.querySelector('.swal2-container')
         if (swalContainer) {
           (swalContainer as HTMLElement).style.zIndex = '99999'
@@ -275,7 +318,7 @@ export default function AssignEmployeeModal({
             title: '¡Removido!',
             text: 'El empleado ha sido removido de la orden',
             icon: 'success',
-            timer: 3000, // Increased timer
+            timer: 3000, 
             showConfirmButton: false,
             customClass: {
               container: 'swal-high-zindex'
@@ -340,16 +383,13 @@ export default function AssignEmployeeModal({
       style={{ zIndex: 9999 }}
       data-modal="assign-employee"
     >
-      {/* Backdrop */}
       <div 
         className="absolute inset-0 bg-black bg-opacity-50" 
         onClick={onClose}
         style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
       ></div>
       
-      {/* Modal Content */}
       <div className="relative bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl z-10">
-        {/* Header */}
         <div className="flex items-center justify-between p-6 border-b bg-white">
           <div className="flex items-center gap-3">
             <FaUserTie className="text-2xl text-blue-600" />
@@ -367,7 +407,6 @@ export default function AssignEmployeeModal({
           </button>
         </div>
 
-        {/* Work Order Info */}
         <div className="p-6 bg-gray-50 border-b">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
             <div>
@@ -388,7 +427,6 @@ export default function AssignEmployeeModal({
         </div>
 
         <div className="p-6 bg-white">
-          {/* Assign New Employee */}
           <div className="mb-8">
             <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
               <FaPlus className="text-green-600" />
@@ -433,7 +471,6 @@ export default function AssignEmployeeModal({
             )}
           </div>
 
-          {/* Current Assignments */}
           <div>
             <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
               <FaUser className="text-blue-600" />
@@ -491,7 +528,6 @@ export default function AssignEmployeeModal({
           </div>
         </div>
 
-        {/* Footer */}
         <div className="flex justify-end gap-3 p-6 border-t bg-gray-50">
           <button
             onClick={onClose}
@@ -505,7 +541,6 @@ export default function AssignEmployeeModal({
     </div>
   )
 
-  // Use portal to render modal at document body level
   return typeof document !== 'undefined' 
     ? createPortal(modalContent, document.body)
     : null

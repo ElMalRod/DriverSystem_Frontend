@@ -38,3 +38,25 @@ export async function resendMfaCode(email: string) {
   if (!res.ok) throw new Error(data?.messsage || "No se pudo reenviar el código");
   return data;
 }
+
+export async function registerUser(userData: {
+  email: string;
+  password: string;
+  first_name: string;
+  last_name: string;
+  phone: string;
+}) {
+  const res = await fetch("/api/register", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(userData),
+  });
+  
+  const data = await res.json().catch(() => ({}));
+  
+  if (!res.ok) {
+    throw new Error(data?.message || "Error en el registro");
+  }
+  
+  return data;
+}

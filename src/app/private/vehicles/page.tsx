@@ -46,22 +46,18 @@ export default function VehiclesPage() {
   const [showAssignVehicle, setShowAssignVehicle] = useState(false)
   const [createdVehicle, setCreatedVehicle] = useState<any>(null)
 
-  // Assignment modal states
   const [unassignedVehicles, setUnassignedVehicles] = useState<VehicleResponse[]>([])
   const [selectedVehicleId, setSelectedVehicleId] = useState<number>(0)
   const [selectedClientId, setSelectedClientId] = useState<number>(0)
   const [assignmentLoading, setAssignmentLoading] = useState(false)
 
-  // Make modals
   const [editingMake, setEditingMake] = useState<VehicleMake | null>(null)
   const [newMakeName, setNewMakeName] = useState("")
   
-  // Model modals
   const [editingModel, setEditingModel] = useState<VehicleModel | null>(null)
   const [newModelName, setNewModelName] = useState("")
   const [selectedMakeId, setSelectedMakeId] = useState<number>(0)
   
-  // Form state for vehicle registration
   const [vehicleForm, setVehicleForm] = useState({
     plate: "",
     makeId: 0,
@@ -92,7 +88,7 @@ export default function VehiclesPage() {
       setLoading(true)
       setError("")
       const data = await getVehicleMakes()
-      // Ordenar por ID ascendente (más antiguo primero)
+      // Ordenar por ID ascendente el mas antiguo primero
       const sortedData = Array.isArray(data) ? data.sort((a, b) => a.id - b.id) : []
       setMakes(sortedData)
     } catch (err: any) {
@@ -106,7 +102,6 @@ export default function VehiclesPage() {
     try {
       setLoading(true)
       const data = await getVehicleModels()
-      // Ordenar por ID ascendente (más antiguo primero)
       const sortedData = Array.isArray(data) ? data.sort((a, b) => a.id - b.id) : []
       setModels(sortedData)
     } catch (err: any) {
@@ -163,10 +158,9 @@ export default function VehiclesPage() {
     setSelectedVehicleId(0)
     setSelectedClientId(0)
     
-    // Cargar vehículos sin asignar
+    // vehículos sin asignar
     await loadUnassignedVehicles()
     
-    // Verificar después de cargar si hay vehículos disponibles
     setTimeout(() => {
       if (unassignedVehicles.length === 0) {
         if (window.Swal) {
@@ -198,7 +192,6 @@ export default function VehiclesPage() {
       setAssignmentLoading(true)
       await assignVehicleToUser(selectedClientId, selectedVehicleId)
       
-      // Recargar los datos
       await Promise.all([loadAllVehicles(), loadUnassignedVehicles()])
       
       setShowAssignVehicle(false)
@@ -264,7 +257,6 @@ export default function VehiclesPage() {
       console.log('Creando marca:', { name: newMakeName.trim() })
       const newMake = await createVehicleMake({ name: newMakeName.trim() })
       console.log('Marca creada:', newMake)
-      // Agregar y reordenar por ID
       setMakes(prev => [...prev, newMake].sort((a, b) => a.id - b.id))
       setNewMakeName("")
       setShowCreateMake(false)
@@ -279,7 +271,7 @@ export default function VehiclesPage() {
         })
       }
     } catch (err: any) {
-      console.error('Error al crear marca:', err) // Debug
+      console.error('Error al crear marca:', err) // debug
       setError(err.message)
       if (window.Swal) {
         window.Swal.fire({
@@ -301,7 +293,7 @@ export default function VehiclesPage() {
         id: editingMake.id, 
         name: newMakeName.trim() 
       })
-      console.log('Marca actualizada:', updatedMake) // Debug
+      console.log('Marca actualizada:', updatedMake) // debug
       // Actualizar y mantener orden por ID
       setMakes(prev => prev.map(make => 
         make.id === updatedMake.id ? updatedMake : make
@@ -320,7 +312,7 @@ export default function VehiclesPage() {
         })
       }
     } catch (err: any) {
-      console.error('Error al actualizar marca:', err) // Debug
+      console.error('Error al actualizar marca:', err) // debug
       setError(err.message)
       if (window.Swal) {
         window.Swal.fire({
@@ -332,8 +324,6 @@ export default function VehiclesPage() {
     }
   }
 
-  // La función handleDeleteMake ha sido eliminada porque no existe deleteVehicleMake en la API.
-  // Si necesitas implementar la eliminación de marcas, primero agrega el método en la API y luego reimplementa esta función.
   async function handleCreateModel(e: React.FormEvent) {
     e.preventDefault()
     if (!newModelName.trim() || !selectedMakeId) return
@@ -343,7 +333,6 @@ export default function VehiclesPage() {
         makeId: selectedMakeId, 
         name: newModelName.trim() 
       })
-      // Agregar y reordenar por ID
       setModels(prev => [...prev, newModel].sort((a, b) => a.id - b.id))
       setNewModelName("")
       setSelectedMakeId(0)
@@ -380,7 +369,6 @@ export default function VehiclesPage() {
         makeId: selectedMakeId,
         name: newModelName.trim()
       })
-      // Actualizar y mantener orden por ID
       setModels(prev => prev.map(model => 
         model.id === updatedModel.id ? updatedModel : model
       ).sort((a, b) => a.id - b.id))
@@ -507,8 +495,6 @@ export default function VehiclesPage() {
           setShowRegisterVehicle(false)
         } catch (assignError: any) {
           console.log('Vehicle created but assignment failed:', assignError)
-          // El vehículo fue creado, pero la asignación falló
-          // Mantener el modal abierto para intentar asignación manual
         }
       }
       
@@ -607,7 +593,6 @@ export default function VehiclesPage() {
   async function handleViewVehicleDetails(vehicle: VehicleResponse) {
     if (!window.Swal) return
 
-    // Mostrar loading mientras se busca el dueño
     window.Swal.fire({
       title: 'Cargando detalles...',
       allowOutsideClick: false,
@@ -622,7 +607,6 @@ export default function VehiclesPage() {
     try {
       console.log(`[VEHICLES] Buscando dueño para vehículo ${vehicle.id}`)
       
-      // Buscar el dueño del vehículo
       for (const user of users) {
         try {
           const userVehicles = await getUserVehicles(user.id)
@@ -647,7 +631,6 @@ export default function VehiclesPage() {
       ownerBgColor = 'bg-red-50'
     }
 
-    // Mostrar el modal con los detalles
     window.Swal.fire({
       title: `Detalles del Vehículo - ${vehicle.plate}`,
       html: `
@@ -699,7 +682,6 @@ export default function VehiclesPage() {
     )
   }
 
-  // Obtener marcas únicas para el filtro
   const uniqueVehicleMakes = Array.from(new Set(allVehicles.map(v => v.make))).sort()
 
   const currentYears = Array.from({length: 30}, (_, i) => new Date().getFullYear() - i)
@@ -780,7 +762,6 @@ export default function VehiclesPage() {
                     >
                       <FaEdit size={14} />
                     </button>
-                    {/* Botón de eliminar removido para marcas */}
                   </div>
                 </div>
               </div>
@@ -840,7 +821,6 @@ export default function VehiclesPage() {
         </div>
       )}
 
-      {/* Edit Make Modal */}
       {showEditMake && editingMake && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-md">
@@ -879,7 +859,6 @@ export default function VehiclesPage() {
         </div>
       )}
 
-      {/* Vehicle Models Section */}
       <div className="bg-white border border-gray-200 rounded-lg p-6">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
@@ -947,7 +926,6 @@ export default function VehiclesPage() {
         )}
       </div>
 
-      {/* Create Model Modal */}
       {showCreateModel && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-md">
@@ -1435,14 +1413,12 @@ export default function VehiclesPage() {
         </div>
       )}
 
-      {/* Assign Vehicle to Client Modal */}
       {showAssignVehicle && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg p-6 w-full max-w-md">
             <h3 className="text-lg font-semibold mb-4">Asignar Cliente a Vehículo</h3>
             
             <div className="space-y-4">
-              {/* Vehículo */}
               <div>
                 <label className="block text-sm font-medium mb-2">Vehículo disponible *</label>
                 <select

@@ -1,4 +1,3 @@
-// Work Order validation schemas and types
 export interface WorkOrderCreateData {
   vehicleId: number
   customerId: number
@@ -35,7 +34,6 @@ export interface WorkOrderFilters {
   dateTo?: string
 }
 
-// Validation functions
 export const validateWorkOrderCreate = (data: any): { isValid: boolean; errors: string[] } => {
   const errors: string[] = []
 

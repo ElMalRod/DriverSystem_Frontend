@@ -54,7 +54,7 @@ export interface WorkOrder {
   maintenanceType: 'Corrective' | 'Preventive'
   status: string
   customerId: number
-  vehicleId?: number // Add vehicleId field
+  vehicleId?: number 
   docNumberCustomer: string
   customer: string
   phoneCustomer: string

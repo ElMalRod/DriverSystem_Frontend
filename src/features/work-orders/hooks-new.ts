@@ -50,7 +50,11 @@ export function useWorkOrder(id: number) {
       setLoading(true)
       setError(null)
       const data = await getWorkOrderById(id)
-      setWorkOrder(data)
+      const mappedData: WorkOrder = {
+        ...data,
+        maintenanceType: data.maintenanceType === "Corrective" ? "Corrective" : "Preventive"
+      }
+      setWorkOrder(mappedData)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error fetching work order')
     } finally {

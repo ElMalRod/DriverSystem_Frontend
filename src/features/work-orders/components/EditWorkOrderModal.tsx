@@ -49,20 +49,17 @@ export default function EditWorkOrderModal({
   const [loadingTypes, setLoadingTypes] = useState(false)
   const [mounted, setMounted] = useState(false)
 
-  // Ensure component is mounted (for portal)
   useEffect(() => {
     setMounted(true)
     return () => setMounted(false)
   }, [])
 
-  // Load maintenance types when modal opens
   useEffect(() => {
     if (isOpen) {
       loadMaintenanceTypes()
     }
   }, [isOpen])
 
-  // Reset form when modal opens/closes
   useEffect(() => {
     if (isOpen && workOrder) {
       setFormData({
@@ -147,23 +144,19 @@ export default function EditWorkOrderModal({
     try {
       setLoading(true)
       
-      // Get the type ID for the selected maintenance type
       const selectedType = maintenanceTypes.find(type => type.name === formData.maintenanceType)
       const typeId = selectedType?.id || (formData.maintenanceType === 'Preventive' ? 1 : 2)
 
-      // Prepare update data
       const updateData = {
         id: workOrder.id,
         description: formData.description.trim(),
         estimatedHours: formData.estimatedHours ? Number(formData.estimatedHours) : null,
         typeId: typeId,
-        workOrder: workOrder // Pass the complete work order
+        workOrder: workOrder 
       }
 
-      // Call API to update work order
       await updateWorkOrderInfo(updateData)
       
-      // Update local work order object
       const updatedWorkOrder: WorkOrder = {
         ...workOrder,
         description: updateData.description,
@@ -171,7 +164,6 @@ export default function EditWorkOrderModal({
         maintenanceType: formData.maintenanceType as 'Corrective' | 'Preventive'
       }
 
-      // Show success message
       if (window.Swal) {
         window.Swal.fire({
           title: 'Orden Actualizada',
@@ -191,12 +183,10 @@ export default function EditWorkOrderModal({
         })
       }
 
-      // Notify parent component
       if (onWorkOrderUpdated) {
         onWorkOrderUpdated(updatedWorkOrder)
       }
 
-      // Close modal
       onClose()
     } catch (error) {
       console.error('Error updating work order:', error)
@@ -238,16 +228,13 @@ export default function EditWorkOrderModal({
       style={{ zIndex: 9999 }}
       data-modal="edit-work-order"
     >
-      {/* Backdrop */}
       <div 
         className="absolute inset-0 bg-black bg-opacity-50" 
         onClick={onClose}
         style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
       ></div>
       
-      {/* Modal Content */}
       <div className="relative bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl z-10">
-        {/* Header */}
         <div className="flex items-center justify-between p-6 border-b bg-white">
           <div className="flex items-center gap-3">
             <FaEdit className="text-2xl text-indigo-600" />
@@ -267,7 +254,6 @@ export default function EditWorkOrderModal({
         </div>
 
         <div className="p-6 bg-white">
-          {/* Order Info (Read-only) */}
           <div className="mb-6 p-4 bg-gray-50 rounded-lg">
             <h3 className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
               <FaClipboardList className="text-gray-500" />
@@ -293,9 +279,7 @@ export default function EditWorkOrderModal({
             </div>
           </div>
 
-          {/* Editable Fields */}
           <div className="space-y-6">
-            {/* Description */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 <FaFileAlt className="inline mr-2 text-gray-500" />
@@ -315,7 +299,6 @@ export default function EditWorkOrderModal({
               </p>
             </div>
 
-            {/* Estimated Hours */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 <FaClock className="inline mr-2 text-gray-500" />
@@ -336,7 +319,6 @@ export default function EditWorkOrderModal({
               </p>
             </div>
 
-            {/* Maintenance Type */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 <FaTools className="inline mr-2 text-gray-500" />
@@ -361,7 +343,6 @@ export default function EditWorkOrderModal({
             </div>
           </div>
 
-          {/* Change Summary */}
           {hasChanges() && (
             <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
               <h4 className="text-sm font-medium text-blue-800 mb-2">Cambios Detectados:</h4>
@@ -380,7 +361,6 @@ export default function EditWorkOrderModal({
           )}
         </div>
 
-        {/* Footer */}
         <div className="flex justify-end gap-3 p-6 border-t bg-gray-50">
           <button
             onClick={onClose}
@@ -411,7 +391,6 @@ export default function EditWorkOrderModal({
     </div>
   )
 
-  // Use portal to render modal at document body level
   return typeof document !== 'undefined' 
     ? createPortal(modalContent, document.body)
     : null

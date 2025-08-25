@@ -20,7 +20,6 @@ export default function UsersPage() {
   const [editingUser, setEditingUser] = useState<User | null>(null)
   const [error, setError] = useState("")
 
-  // Form state for both create and edit
   const [formData, setFormData] = useState({
     userName: "",
     email: "",
@@ -84,7 +83,7 @@ export default function UsersPage() {
         name: formData.name.trim(),
         userType: formData.userType,
         role: formData.role,
-        passwordHash: formData.password // El backend debería hashear esto
+        passwordHash: formData.password // el backend debería hashear esto
       }
 
       const newUser = await createUser(newUserData)
@@ -128,7 +127,7 @@ export default function UsersPage() {
         name: formData.name.trim(),
         userType: formData.userType,
         role: formData.role,
-        passwordHash: formData.password.trim() || "unchangedpassword" // No cambiar si está vacío
+        passwordHash: formData.password.trim() || "unchangedpassword" 
       }
 
       const updatedUser = await updateUserData(updateData)
@@ -172,7 +171,7 @@ export default function UsersPage() {
       name: user.name,
       userType: user.userType,
       role: roles.find(r => r.name === user.roleName)?.id || 0,
-      password: "" // Dejar vacío para no cambiar
+      password: "" 
     })
     setShowEditUser(true)
   }
@@ -210,7 +209,7 @@ export default function UsersPage() {
   }
 
   async function handleToggleUserMfa(user: User) {
-    const newMfaState = !user.is_active_mfa // Enviar el estado opuesto
+    const newMfaState = !user.is_active_mfa 
     
     try {
       console.log(`Changing user ${user.id} MFA from ${user.is_active_mfa} to ${newMfaState}`) // Debug
@@ -262,7 +261,6 @@ export default function UsersPage() {
     resetForm()
   }
 
-  // Removed getUserRoles and getRoleNames as userRoles is not defined
 
   const userTypeOptions = [
     { value: 'PERSON', label: 'Persona' },
@@ -278,7 +276,6 @@ export default function UsersPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold text-[var(--color-dark)]">
@@ -299,7 +296,6 @@ export default function UsersPage() {
         </div>
       </div>
 
-      {/* Stats by Role */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         {roles.map(role => {
           const count = users.filter(u => u.roleName === role.name).length
@@ -317,7 +313,6 @@ export default function UsersPage() {
         })}
       </div>
 
-      {/* Users Table */}
       <div className="bg-white border border-gray-200 rounded-lg p-6">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
@@ -437,7 +432,6 @@ export default function UsersPage() {
         )}
       </div>
 
-      {/* Create User Modal */}
       {showCreateUser && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -579,7 +573,6 @@ export default function UsersPage() {
         </div>
       )}
 
-      {/* Edit User Modal */}
       {showEditUser && editingUser && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">

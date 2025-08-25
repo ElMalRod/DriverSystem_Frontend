@@ -51,16 +51,13 @@ export default function ChangeStatusModal({
   const [loading, setLoading] = useState(false)
   const [mounted, setMounted] = useState(false)
 
-  // Ensure component is mounted (for portal)
   useEffect(() => {
     setMounted(true)
     return () => setMounted(false)
   }, [])
 
-  // Reset form when modal opens/closes
   useEffect(() => {
     if (isOpen && workOrder) {
-      // Set current status as default
       const currentStatusOption = STATUS_OPTIONS.find(opt => opt.label === workOrder.status)
       setSelectedStatus(currentStatusOption?.value || null)
       setComment("")
@@ -85,7 +82,6 @@ export default function ChangeStatusModal({
     const selectedOption = getSelectedStatusOption()
     if (!selectedOption) return
 
-    // Check if status actually changed
     const currentOption = getCurrentStatusOption()
     if (currentOption?.value === selectedStatus) {
       if (window.Swal) {
@@ -110,16 +106,13 @@ export default function ChangeStatusModal({
     try {
       setLoading(true)
       
-      // Call API to update status
       await updateWorkOrderStatus(workOrder.id, selectedStatus, comment)
       
-      // Update local work order object
       const updatedWorkOrder: WorkOrder = {
         ...workOrder,
         status: selectedOption.label
       }
 
-      // Show success message
       if (window.Swal) {
         window.Swal.fire({
           title: 'Estado Actualizado',
@@ -139,12 +132,10 @@ export default function ChangeStatusModal({
         })
       }
 
-      // Notify parent component
       if (onStatusChanged) {
         onStatusChanged(updatedWorkOrder)
       }
 
-      // Close modal
       onClose()
     } catch (error) {
       console.error('Error updating status:', error)
@@ -180,16 +171,13 @@ export default function ChangeStatusModal({
       style={{ zIndex: 9999 }}
       data-modal="change-status"
     >
-      {/* Backdrop */}
       <div 
         className="absolute inset-0 bg-black bg-opacity-50" 
         onClick={onClose}
         style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
       ></div>
       
-      {/* Modal Content */}
       <div className="relative bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl z-10">
-        {/* Header */}
         <div className="flex items-center justify-between p-6 border-b bg-white">
           <div className="flex items-center gap-3">
             <FaExchangeAlt className="text-2xl text-orange-600" />
@@ -209,7 +197,6 @@ export default function ChangeStatusModal({
         </div>
 
         <div className="p-6 bg-white">
-          {/* Current Status */}
           <div className="mb-6">
             <h3 className="text-sm font-medium text-gray-700 mb-2">Estado Actual:</h3>
             <div className="flex items-center gap-3">
@@ -222,7 +209,6 @@ export default function ChangeStatusModal({
             </div>
           </div>
 
-          {/* New Status Selection */}
           <div className="mb-6">
             <h3 className="text-sm font-medium text-gray-700 mb-3">Nuevo Estado:</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -250,7 +236,6 @@ export default function ChangeStatusModal({
             </div>
           </div>
 
-          {/* Comment */}
           <div className="mb-6">
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Comentario (Opcional):
@@ -268,7 +253,6 @@ export default function ChangeStatusModal({
             </p>
           </div>
 
-          {/* Status Change Preview */}
           {selectedStatusOption && currentStatusOption?.value !== selectedStatus && (
             <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
               <div className="flex items-center gap-2 mb-2">
@@ -288,7 +272,6 @@ export default function ChangeStatusModal({
           )}
         </div>
 
-        {/* Footer */}
         <div className="flex justify-end gap-3 p-6 border-t bg-gray-50">
           <button
             onClick={onClose}
@@ -319,7 +302,6 @@ export default function ChangeStatusModal({
     </div>
   )
 
-  // Use portal to render modal at document body level
   return typeof document !== 'undefined' 
     ? createPortal(modalContent, document.body)
     : null

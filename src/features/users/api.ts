@@ -206,7 +206,7 @@ export async function getUserById(id: number): Promise<User> {
   return res.json();
 }
 
-// Obtener todos los usuarios con sus roles
+// obtener todos los usuarios con sus roles
 export async function getUsersWithRoles(): Promise<UserWithRoles[]> {
   try {
     const [users, roles] = await Promise.all([
@@ -214,11 +214,9 @@ export async function getUsersWithRoles(): Promise<UserWithRoles[]> {
       getRoles()
     ]);
     
-    // Por ahora, devolver usuarios sin roles específicos asignados
-    // Esto se debe completar cuando el backend devuelva la relación user-role
     return users.map(user => ({
       ...user,
-      userRoles: [] // Temporal hasta que el backend devuelva los roles por usuario
+      userRoles: [] // Temporal 
     }));
   } catch (error) {
     throw new Error("Error al obtener usuarios con roles");

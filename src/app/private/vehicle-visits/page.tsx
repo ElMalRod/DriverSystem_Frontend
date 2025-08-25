@@ -39,13 +39,11 @@ export default function VehicleVisitsPage() {
   const [selectedVisit, setSelectedVisit] = useState<VehicleVisitResponse | null>(null)
   const [error, setError] = useState("")
 
-  // Form state for editing visit
   const [editForm, setEditForm] = useState({
     notes: "",
     departedAt: ""
   })
 
-  // Form state for creating new visit
   const [createForm, setCreateForm] = useState({
     vehicleId: 0,
     customerId: 0,
@@ -59,7 +57,6 @@ export default function VehicleVisitsPage() {
     loadAllData()
   }, [])
 
-  // Función para cargar vehículos del cliente seleccionado
   async function loadCustomerVehicles(customerId: number) {
     if (!customerId) {
       setCustomerVehicles([])
@@ -73,7 +70,6 @@ export default function VehicleVisitsPage() {
       const userVehicles = await getUserVehicles(customerId)
       console.log(`[VISITS] Customer vehicles response:`, userVehicles)
       
-      // Verificar si el cliente no tiene vehículos
       if (!userVehicles || userVehicles.length === 0) {
         setCustomerVehicles([])
         const customerName = getCustomerName(customerId)
@@ -101,13 +97,12 @@ export default function VehicleVisitsPage() {
         return
       }
       
-      // Transformar la respuesta para que coincida con la interfaz Vehicle
       const vehicles = userVehicles.map((userVehicle: UserVehicleResponse) => ({
         id: userVehicle.vehicleResponse.id,
         plate: userVehicle.vehicleResponse.plate,
         make: userVehicle.vehicleResponse.make,
         model: userVehicle.vehicleResponse.model,
-        year: 2024, // La API no retorna year, usar valor por defecto
+        year: 2024, 
         color: userVehicle.vehicleResponse.color,
         vin: userVehicle.vehicleResponse.vin
       }))
@@ -115,7 +110,6 @@ export default function VehicleVisitsPage() {
       setCustomerVehicles(vehicles)
       console.log(`[VISITS] Loaded ${vehicles.length} vehicles for customer ${customerId}`)
     } catch (err: any) {
-      // Si es un error 404, no lo mostramos como error en consola
       if (err.message.includes('HTTP 404') || err.message.includes('404')) {
         console.log(`[VISITS] Customer ${customerId} has no vehicles:`, err.message)
       } else {
@@ -124,7 +118,6 @@ export default function VehicleVisitsPage() {
       
       setCustomerVehicles([])
       
-      // Si es un error 404, mostrar advertencia específica sobre cliente sin vehículos
       if (err.message.includes('HTTP 404') || err.message.includes('404')) {
         const customerName = getCustomerName(customerId)
         
@@ -147,7 +140,6 @@ export default function VehicleVisitsPage() {
           alert(`El cliente ${customerName} no tiene vehículos registrados aún.`)
         }
       } else {
-        // Para otros errores, mostrar el error original
         setError(`Error al cargar vehículos del cliente: ${err.message}`)
       }
     } finally {
@@ -155,12 +147,11 @@ export default function VehicleVisitsPage() {
     }
   }
 
-  // Manejar cambio de cliente en el formulario
   function handleCustomerChange(customerId: number) {
     setCreateForm(prev => ({ 
       ...prev, 
       customerId, 
-      vehicleId: 0 // Resetear vehículo seleccionado
+      vehicleId: 0 
     }))
     loadCustomerVehicles(customerId)
   }
@@ -182,7 +173,7 @@ export default function VehicleVisitsPage() {
             plate: v.plate,
             make: v.make,
             model: v.model,
-            year: v.year ?? 0, // fallback if year is missing
+            year: v.year ?? 0, 
             color: v.color,
             vin: v.vin
           }))
@@ -246,7 +237,7 @@ export default function VehicleVisitsPage() {
       notes: "",
       departedAt: ""
     })
-    setCustomerVehicles([]) // Limpiar vehículos del cliente
+    setCustomerVehicles([]) 
   }
 
   function getCustomerName(customerId: number): string {
@@ -371,15 +362,13 @@ export default function VehicleVisitsPage() {
     try {
       console.log(`[VISITS] Updating visit ${selectedVisit.id} status from ${selectedVisit.status} to: ${selectedStatus}`)
       
-      // Llamar al endpoint PATCH que retorna la visita actualizada
       const updatedVisit = await updateVisitStatus(selectedVisit.id, selectedStatus)
       console.log(`[VISITS] Updated visit response:`, updatedVisit)
       
-      // Verificar si la respuesta contiene un mensaje (visita cancelada y eliminada)
       if (updatedVisit && typeof updatedVisit === 'object' && 'message' in updatedVisit) {
         console.log(`[VISITS] Visit was deleted:`, updatedVisit.message)
         
-        // Si la visita fue cancelada y eliminada, removerla de la lista
+        // si la visita fue cancelada y eliminada removerla de la lista
         setVisits(prev => prev.filter(v => v.id !== selectedVisit.id))
         
         setShowStatusModal(false)
@@ -398,7 +387,6 @@ export default function VehicleVisitsPage() {
         return
       }
       
-      // Si no fue eliminada, actualizar normalmente
       setVisits(prev => prev.map(v => 
         v.id === selectedVisit.id 
           ? {
@@ -461,7 +449,6 @@ export default function VehicleVisitsPage() {
     try {
       await updateVehicleVisitDeparture(visitId)
       
-      // Actualizar la visita en el estado local
       setVisits(prev => prev.map(v => 
         v.id === visitId ? { ...v, departedAt: new Date().toISOString() } : v
       ))
@@ -504,7 +491,6 @@ export default function VehicleVisitsPage() {
 
     try {
       await deleteVehicleVisit(visitId)
-      // Aquí deberías llamar a la función para eliminar la visita si existe
       // await deleteVehicleVisit(visitId)
       setVisits(prev => prev.filter(v => v.id !== visitId))
       
@@ -567,12 +553,10 @@ export default function VehicleVisitsPage() {
     { value: 'CANCELADA', label: 'Cancelada' }
   ]
 
-  // Filtrar solo clientes
   const clients = users.filter(user => user.roleName === "Cliente" || user.userType === "Cliente")
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold text-[var(--color-dark)]">
@@ -618,7 +602,6 @@ export default function VehicleVisitsPage() {
         })}
       </div>
 
-      {/* Visits Table */}
       <div className="bg-white border border-gray-200 rounded-lg p-6">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
@@ -735,7 +718,6 @@ export default function VehicleVisitsPage() {
         )}
       </div>
 
-      {/* Create Visit Modal */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -751,7 +733,6 @@ export default function VehicleVisitsPage() {
             
             <form onSubmit={handleCreateVisit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
               
-              {/* Cliente */}
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium mb-2">Cliente *</label>
                 <select
@@ -770,7 +751,6 @@ export default function VehicleVisitsPage() {
                 <p className="text-xs text-gray-500 mt-1">{clients.length} clientes disponibles</p>
               </div>
 
-              {/* Vehículo */}
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium mb-2">Vehículo *</label>
                 <select
@@ -802,7 +782,6 @@ export default function VehicleVisitsPage() {
                 </p>
               </div>
 
-              {/* Notas */}
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium mb-2">Notas del servicio</label>
                 <textarea
@@ -814,7 +793,6 @@ export default function VehicleVisitsPage() {
                 />
               </div>
 
-              {/* Fecha de salida estimada (opcional) */}
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium mb-2">Fecha de salida estimada (opcional)</label>
                 <input
@@ -850,7 +828,6 @@ export default function VehicleVisitsPage() {
         </div>
       )}
 
-      {/* Edit Visit Modal */}
       {showEditModal && editingVisit && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg p-6 w-full max-w-md">
@@ -899,7 +876,6 @@ export default function VehicleVisitsPage() {
         </div>
       )}
 
-      {/* Change Status Modal */}
       {showStatusModal && selectedVisit && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg p-6 w-full max-w-md">
