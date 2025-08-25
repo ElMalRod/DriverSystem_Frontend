@@ -53,7 +53,6 @@ export function useWorkOrder(id: number) {
       setLoading(true)
       setError(null)
       const data = await getWorkOrderById(id)
-      // Map maintenanceType string to the correct union type
       const mappedData: WorkOrder = {
         ...data,
         maintenanceType: data.maintenanceType === "Corrective" ? "Corrective" : "Preventive"
