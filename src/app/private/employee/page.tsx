@@ -41,8 +41,10 @@ import {
   createWorkLog,
   getAllWorkAssignments,
   WorkAssignment,
-  updateWorkOrderInfo
+  updateWorkOrderInfo,
+  createWorkAssignment
 } from "@/features/work-orders/api";
+import { getUsers, User } from "@/features/users/api";
 
 declare global {
   interface Window {
@@ -56,6 +58,8 @@ export default function EmployeePage() {
   const [assignments, setAssignments] = useState<WorkAssignment[]>([]);
   const [loading, setLoading] = useState(true);
   const [ordersLoading, setOrdersLoading] = useState(true);
+  const [specialists, setSpecialists] = useState<User[]>([]);
+  const [loadingSpecialists, setLoadingSpecialists] = useState(false);
   
   // Filtros
   const [selectedStatus, setSelectedStatus] = useState<string>("all");
@@ -69,6 +73,7 @@ export default function EmployeePage() {
 
     if (user?.id) {
       loadEmployeeWorkOrders(user.id);
+      loadSpecialists();
     }
   }, []);
 
@@ -838,6 +843,222 @@ ${newType === 'Preventive'
     }
   }
 
+  async function loadSpecialists() {
+    try {
+      setLoadingSpecialists(true);
+      const allUsers = await getUsers();
+      
+      const specialistsData = allUsers.filter(user => 
+        user.roleName === "SPECIALIST" || 
+        user.roleName === "Specialist" || 
+        user.roleName === "Especialista" ||
+        user.roleName?.toLowerCase().includes('specialist') ||
+        user.roleName?.toLowerCase().includes('especialista')
+      );
+      
+      setSpecialists(specialistsData);
+      console.log("[EMPLOYEE] Specialists loaded:", specialistsData);
+    } catch (error) {
+      console.error("Error loading specialists:", error);
+      setSpecialists([]);
+    } finally {
+      setLoadingSpecialists(false);
+    }
+  }
+
+  async function handleRequestSpecialistSupport(workOrder: WorkOrder) {
+    try {
+      if (specialists.length === 0) {
+        if (window.Swal) {
+          window.Swal.fire({
+            icon: 'warning',
+            title: 'Sin especialistas disponibles',
+            text: 'No hay especialistas registrados en el sistema en este momento.',
+            confirmButtonColor: '#F59E0B'
+          });
+        }
+        return;
+      }
+
+      if (window.Swal) {
+        const specialistOptions = specialists.map(specialist => 
+          `<option value="${specialist.id}">${specialist.name} - ${specialist.docNumber}</option>`
+        ).join('');
+
+        const { value: formValues } = await window.Swal.fire({
+          title: 'Solicitar Apoyo de Especialista',
+          html: `
+            <div class="text-left space-y-4">
+              <div class="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                <h4 class="font-semibold text-blue-900 mb-2">Orden: ${workOrder.code}</h4>
+                <div class="space-y-1 text-sm">
+                  <p><span class="font-medium">Vehículo:</span> ${workOrder.plate} - ${workOrder.make} ${workOrder.model}</p>
+                  <p><span class="font-medium">Cliente:</span> ${workOrder.customer}</p>
+                  <p><span class="font-medium">Tipo:</span> ${getMaintenanceTypeDisplayName(workOrder.maintenanceType)}</p>
+                </div>
+              </div>
+              
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                  Especialista a solicitar:
+                </label>
+                <select id="swal-specialist" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                  <option value="">Seleccionar especialista...</option>
+                  ${specialistOptions}
+                </select>
+              </div>
+              
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                  Motivo de la solicitud:
+                </label>
+                <textarea 
+                  id="swal-support-reason" 
+                  class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+                  rows="4"
+                  placeholder="Describe el problema técnico o la razón por la cual necesitas apoyo especializado..."
+                  maxlength="500"
+                ></textarea>
+                <div class="text-right mt-1">
+                  <span id="char-counter" class="text-xs text-gray-400">0/500 caracteres</span>
+                </div>
+              </div>
+              
+              <div class="bg-amber-50 p-3 rounded-lg border border-amber-200">
+                <div class="flex items-start gap-2">
+                  <div class="text-amber-600 mt-0.5 font-bold">!</div>
+                  <div class="text-sm">
+                    <p class="font-medium text-amber-800 mb-1">¿Qué va a pasar?</p>
+                    <p class="text-amber-700">
+                      • El especialista seleccionado será <strong>asignado oficialmente</strong> a este trabajo<br>
+                      • Se creará un registro automático documentando la asignación<br>
+                      • El especialista podrá ver este trabajo en su interfaz especializada<br>
+                      • El trabajo continuará bajo supervisión especializada
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          `,
+          focusConfirm: false,
+          showCancelButton: true,
+          confirmButtonColor: '#3B82F6',
+          cancelButtonColor: '#6B7280',
+          confirmButtonText: 'Asignar Especialista',
+          cancelButtonText: 'Cancelar',
+          width: '650px',
+          didOpen: () => {
+            const reasonTextarea = document.getElementById('swal-support-reason') as HTMLTextAreaElement;
+            const charCounter = document.getElementById('char-counter') as HTMLElement;
+            
+            if (reasonTextarea && charCounter) {
+              reasonTextarea.addEventListener('input', () => {
+                const currentLength = reasonTextarea.value.length;
+                charCounter.textContent = `${currentLength}/500 caracteres`;
+                charCounter.className = currentLength > 450 
+                  ? 'text-xs text-red-500' 
+                  : currentLength > 400 
+                    ? 'text-xs text-yellow-600' 
+                    : 'text-xs text-gray-400';
+              });
+            }
+          },
+          preConfirm: () => {
+            const specialistId = (document.getElementById('swal-specialist') as HTMLSelectElement).value;
+            const reason = (document.getElementById('swal-support-reason') as HTMLTextAreaElement).value;
+            
+            if (!specialistId) {
+              window.Swal.showValidationMessage('Por favor selecciona un especialista');
+              return false;
+            }
+            
+            if (!reason.trim()) {
+              window.Swal.showValidationMessage('Por favor describe el motivo de la solicitud');
+              return false;
+            }
+
+            if (reason.trim().length < 20) {
+              window.Swal.showValidationMessage('El motivo debe tener al menos 20 caracteres');
+              return false;
+            }
+            
+            return { specialistId: parseInt(specialistId), reason: reason.trim() };
+          }
+        });
+
+        if (formValues) {
+          window.Swal.fire({
+            title: 'Asignando especialista...',
+            html: `
+              <div class="text-center">
+                <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-3"></div>
+                <p class="text-gray-600">Asignando especialista al trabajo y registrando la solicitud de apoyo</p>
+              </div>
+            `,
+            allowOutsideClick: false,
+            allowEscapeKey: false,
+            showConfirmButton: false
+          });
+
+          const selectedSpecialist = specialists.find(s => s.id === formValues.specialistId);
+
+          // Crear un log de trabajo documentando la solicitud de apoyo
+          await createWorkLog({
+            workOrderId: workOrder.id,
+            autorId: Number(currentUser?.id) || 1,
+            logType: 'ISSUE' as any,
+            note: `SOLICITUD DE APOYO ESPECIALIZADO\n\nEspecialista solicitado: ${selectedSpecialist?.name} (${selectedSpecialist?.docNumber})\n\nMotivo: ${formValues.reason}`,
+            hours: 0
+          });
+
+          // Crear asignación del especialista al trabajo
+          await createWorkAssignment({
+            workOrderId: workOrder.id,
+            assigneeId: formValues.specialistId,
+            role: 3, // Rol de especialista
+            assignedAt: new Date().toISOString()
+          });
+
+          // Actualizar el estado del trabajo para indicar que requiere apoyo especializado
+          await updateWorkOrderStatus(workOrder.id, 4, `Apoyo especializado solicitado - Especialista: ${selectedSpecialist?.name}`);
+
+          if (currentUser?.id) {
+            await loadEmployeeWorkOrders(currentUser.id);
+          }
+
+          window.Swal.fire({
+            icon: 'success',
+            title: '¡Especialista Asignado!',
+            html: `
+              <div class="text-left">
+                <p class="text-green-800 mb-3"><strong>El especialista ha sido asignado exitosamente al trabajo.</strong></p>
+                <div class="bg-green-50 p-4 rounded-lg border border-green-200">
+                  <p class="text-sm"><strong>Especialista asignado:</strong> ${selectedSpecialist?.name}</p>
+                  <p class="text-sm mt-1"><strong>Documento:</strong> ${selectedSpecialist?.docNumber}</p>
+                  <p class="text-sm mt-1"><strong>Motivo de la asignación:</strong> ${formValues.reason}</p>
+                  <p class="text-sm mt-1"><strong>Estado:</strong> En Espera (esperando apoyo especializado)</p>
+                </div>
+              </div>
+            `,
+            confirmButtonColor: '#10B981',
+            confirmButtonText: 'Entendido',
+            width: '650px'
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error requesting specialist support:', error);
+      if (window.Swal) {
+        window.Swal.fire({
+          icon: 'error',
+          title: 'Error al solicitar apoyo',
+          text: 'No se pudo registrar la solicitud de apoyo especializado. Verifica tu conexión e intenta nuevamente.',
+          confirmButtonColor: '#EF4444'
+        });
+      }
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-[200px]">
@@ -1113,6 +1334,18 @@ ${newType === 'Preventive'
                       >
                         <FaCogs size={12} />
                         <span className="text-xs hidden sm:inline">Cambiar Tipo</span>
+                      </button>
+                    )}
+
+                    {(workOrder.status === 'In Progress' || workOrder.status === 'Assigned') && (
+                      <button
+                        onClick={() => handleRequestSpecialistSupport(workOrder)}
+                        className="text-red-600 hover:text-red-800 p-2 rounded-md hover:bg-red-50 flex items-center gap-1"
+                        title="Solicitar apoyo de especialista"
+                        disabled={loadingSpecialists}
+                      >
+                        <FaWrench size={12} />
+                        <span className="text-xs hidden sm:inline">Especialista</span>
                       </button>
                     )}
 

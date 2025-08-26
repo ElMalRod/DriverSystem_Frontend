@@ -501,6 +501,52 @@ export async function deleteWorkAssignment(id: number): Promise<any> {
   }
 }
 
+export async function releaseSpecialistAssignment(workOrderId: number, specialistId: number): Promise<any> {
+  try {
+    // Buscar la asignación activa del especialista para este trabajo
+    const allAssignments = await getAllWorkAssignments()
+    const specialistAssignment = allAssignments.find(
+      assignment => 
+        assignment.workOrderId === workOrderId && 
+        assignment.assigneeId === specialistId && 
+        !assignment.releasedAt &&
+        assignment.role === 3 // Rol de especialista
+    )
+
+    if (!specialistAssignment) {
+      throw new Error('No se encontró asignación activa del especialista para este trabajo')
+    }
+
+    // Marcar la asignación como liberada
+    const updatedAssignment: WorkAssignmentCreateRequest = {
+      id: specialistAssignment.id,
+      workOrderId: specialistAssignment.workOrderId,
+      assigneeId: specialistAssignment.assigneeId,
+      role: specialistAssignment.role,
+      assignedAt: specialistAssignment.assignedAt,
+      releasedAt: new Date().toISOString()
+    }
+
+    const response = await httpClient(`${BASE_URL}/api/work/assignment/${specialistAssignment.id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(updatedAssignment)
+    })
+
+    const contentType = response.headers.get('content-type')
+    if (contentType && contentType.includes('application/json')) {
+      return response.json()
+    } else {
+      return { success: response.ok }
+    }
+  } catch (error) {
+    console.error('Error releasing specialist assignment:', error)
+    throw error
+  }
+}
+
 export async function getWorkAssignmentsByOrder(workOrderId: number): Promise<WorkAssignment[]> {
   const response = await getAllWorkAssignments()
   return response.filter(assignment => assignment.workOrderId === workOrderId)

@@ -7,7 +7,7 @@ export function homeByRole(role: Rol): string {
     case "EMPLOYEE":
       return "/private/employee"
     case "SPECIALIST":
-      return "/private/work-orders"
+      return "/private/specialist"
     case "CUSTOMER":
       return "/private/customers"
     case "SUPPLIER":
