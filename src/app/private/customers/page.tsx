@@ -39,6 +39,127 @@ declare global {
   }
 }
 
+// Componente para mostrar la sección de aprobación de servicios preventivos
+function PreventiveServiceApproval({ 
+  workOrder, 
+  onApprove, 
+  onReject 
+}: { 
+  workOrder: WorkOrder;
+  onApprove: (workOrder: WorkOrder) => Promise<void>;
+  onReject: (workOrder: WorkOrder) => Promise<void>;
+}) {
+  const [changeReason, setChangeReason] = useState<string>('');
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    async function loadChangeReason() {
+      setLoading(true);
+      try {
+        const logs = await getWorkLogsByOrder(workOrder.id);
+        
+        // Buscar el log más reciente que contenga "CAMBIO DE TIPO DE MANTENIMIENTO"
+        const changeLog = logs
+          .filter(log => log.note.includes('CAMBIO DE TIPO DE MANTENIMIENTO'))
+          .sort((a, b) => new Date(b.logCreatedAt || '').getTime() - new Date(a.logCreatedAt || '').getTime())[0];
+        
+        if (changeLog) {
+          // Extraer el motivo del log
+          const lines = changeLog.note.split('\n');
+          const motiveLineIndex = lines.findIndex(line => line.includes('MOTIVO:'));
+          if (motiveLineIndex >= 0 && motiveLineIndex < lines.length - 1) {
+            const motiveLine = lines[motiveLineIndex];
+            const motiveText = motiveLine.replace('MOTIVO:', '').trim();
+            setChangeReason(motiveText || 'Sin motivo especificado');
+          } else {
+            setChangeReason('Sin motivo especificado');
+          }
+        } else {
+          setChangeReason('Sin información disponible');
+        }
+      } catch (error) {
+        console.error('Error getting preventive change reason:', error);
+        setChangeReason('Error al obtener el motivo');
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadChangeReason();
+  }, [workOrder.id]);
+
+  return (
+    <div className="mb-4 p-4 bg-amber-50 border-2 border-amber-300 rounded-lg">
+      <div className="flex items-start gap-3">
+        <div className="flex-shrink-0">
+          <div className="w-8 h-8 bg-amber-100 rounded-full flex items-center justify-center">
+            <FaExclamationTriangle className="text-amber-600" size={16} />
+          </div>
+        </div>
+        <div className="flex-1">
+          <h4 className="font-semibold text-amber-800 mb-2">
+            Servicio Preventivo - Requiere tu Autorización
+          </h4>
+          <p className="text-sm text-amber-700 mb-3">
+            Un empleado ha solicitado cambiar este trabajo a <strong>mantenimiento preventivo</strong>. 
+            Este tipo de servicio requiere tu aprobación antes de continuar.
+          </p>
+          
+          {/* Motivo del empleado */}
+          <div className="bg-blue-50 p-3 rounded-lg border border-blue-200 mb-3">
+            <div className="flex items-start gap-2">
+              <FaComments className="text-blue-600 mt-0.5 flex-shrink-0" size={14} />
+              <div className="flex-1">
+                <p className="text-xs text-blue-800 font-medium mb-1">
+                  Motivo del empleado:
+                </p>
+                {loading ? (
+                  <div className="flex items-center gap-2">
+                    <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600"></div>
+                    <span className="text-xs text-blue-600">Cargando motivo...</span>
+                  </div>
+                ) : (
+                  <p className="text-xs text-blue-700 italic">
+                    "{changeReason}"
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Información resumida */}
+          <div className="bg-white p-3 rounded-lg border border-amber-200 mb-4">
+            <p className="text-xs text-amber-800 mb-2">
+              <strong>¿Qué significa esto?</strong>
+            </p>
+            <p className="text-xs text-amber-700">
+              <strong>Mantenimiento preventivo:</strong> Orientado al mantenimiento programado para prevenir fallas futuras. 
+              Si no lo autorizas, se finalizará sin ejecución y el empleado quedará disponible.
+            </p>
+          </div>
+
+          <div className="flex gap-3">
+            <button
+              onClick={() => onApprove(workOrder)}
+              className="flex-1 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md font-medium transition-colors duration-200 flex items-center justify-center gap-2"
+            >
+              <FaThumbsUp size={16} />
+              Aprobar Servicio
+            </button>
+            <button
+              onClick={() => onReject(workOrder)}
+              className="flex-1 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md font-medium transition-colors duration-200 flex items-center justify-center gap-2"
+            >
+              <FaThumbsDown size={16} />
+              Rechazar Servicio
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function CustomersPage() {
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [userVehicles, setUserVehicles] = useState<UserVehicleResponse[]>([]);
@@ -150,6 +271,15 @@ export default function CustomersPage() {
     }
 
     return filtered.sort((a, b) => new Date(b.openedAt).getTime() - new Date(a.openedAt).getTime());
+  }
+
+  function getPendingPreventiveServices() {
+    const pending = workOrders.filter(wo => 
+      wo.maintenanceType === 'Preventive' && (wo.status === 'Evaluating' || wo.status === 'On Hold')
+    );
+    console.log('[DEBUG] Preventive services:', workOrders.filter(wo => wo.maintenanceType === 'Preventive'));
+    console.log('[DEBUG] Pending preventive services:', pending);
+    return pending;
   }
 
   function getStatusColor(status: string) {
@@ -354,7 +484,7 @@ export default function CustomersPage() {
             }
           });
 
-          await updateWorkOrderStatus(workOrder.id, 3, 'Servicio preventivo aprobado por el cliente');
+          await updateWorkOrderStatus(workOrder.id, 3, 'Servicio preventivo aprobado por el cliente - Trabajo reanudado');
           
           if (currentUser?.id) {
             await loadServiceHistory(currentUser.id);
@@ -363,8 +493,18 @@ export default function CustomersPage() {
           window.Swal.fire({
             icon: 'success',
             title: '¡Servicio Aprobado!',
-            text: 'El servicio preventivo ha sido aprobado y comenzará pronto.',
-            confirmButtonColor: '#10B981'
+            html: `
+              <div class="text-left">
+                <p class="text-green-800 mb-3"><strong>El servicio preventivo ha sido aprobado exitosamente.</strong></p>
+                <div class="bg-green-50 p-4 rounded-lg border border-green-200">
+                  <p class="text-sm"><strong>Estado actual:</strong> En Progreso</p>
+                  <p class="text-sm mt-1"><strong>Acción:</strong> El empleado asignado ahora puede continuar con el trabajo</p>
+                  <p class="text-sm mt-1 text-gray-600">El servicio preventivo autorizado procederá según lo programado</p>
+                </div>
+              </div>
+            `,
+            confirmButtonColor: '#10B981',
+            width: '500px'
           });
         }
       }
@@ -417,7 +557,7 @@ export default function CustomersPage() {
             }
           });
 
-          await updateWorkOrderStatus(workOrder.id, 8, 'Servicio preventivo rechazado por el cliente');
+          await updateWorkOrderStatus(workOrder.id, 8, 'Servicio preventivo rechazado por el cliente - Empleado liberado');
           
           if (currentUser?.id) {
             await loadServiceHistory(currentUser.id);
@@ -426,8 +566,18 @@ export default function CustomersPage() {
           window.Swal.fire({
             icon: 'info',
             title: 'Servicio Rechazado',
-            text: 'El servicio preventivo ha sido rechazado. La orden se ha marcado como finalizada.',
-            confirmButtonColor: '#3B82F6'
+            html: `
+              <div class="text-left">
+                <p class="text-blue-800 mb-3"><strong>El servicio preventivo ha sido rechazado.</strong></p>
+                <div class="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                  <p class="text-sm"><strong>Estado actual:</strong> No Autorizado</p>
+                  <p class="text-sm mt-1"><strong>Acción:</strong> La orden se ha marcado como finalizada sin ejecución</p>
+                  <p class="text-sm mt-1 text-gray-600">El empleado asignado ha sido liberado y está disponible para otras tareas</p>
+                </div>
+              </div>
+            `,
+            confirmButtonColor: '#3B82F6',
+            width: '500px'
           });
         }
       }
@@ -477,6 +627,75 @@ export default function CustomersPage() {
               <p className="text-xs text-gray-500">
                 Cliente ID: {currentUser.id}
               </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Preventive Services Notification */}
+      {!servicesLoading && getPendingPreventiveServices().length > 0 && (
+        <div className="bg-amber-50 border-2 border-amber-200 rounded-lg p-6">
+          <div className="flex items-start gap-4">
+            <div className="flex-shrink-0">
+              <div className="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center">
+                <FaExclamationTriangle className="text-amber-600" size={24} />
+              </div>
+            </div>
+            <div className="flex-1">
+              <h3 className="text-lg font-semibold text-amber-800 mb-2">
+                Servicios Preventivos Pendientes de Aprobación
+              </h3>
+              <p className="text-amber-700 mb-4">
+                Tienes <strong>{getPendingPreventiveServices().length}</strong> servicio{getPendingPreventiveServices().length > 1 ? 's' : ''} preventivo{getPendingPreventiveServices().length > 1 ? 's' : ''} que {getPendingPreventiveServices().length > 1 ? 'requieren' : 'requiere'} tu autorización para continuar.
+              </p>
+              <div className="space-y-2 mb-4">
+                {getPendingPreventiveServices().slice(0, 3).map((service) => (
+                  <div key={service.id} className="bg-white p-3 rounded-lg border border-amber-200">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h4 className="font-medium text-amber-800">Orden #{service.code}</h4>
+                        <p className="text-sm text-amber-700">{service.plate} - {service.make} {service.model}</p>
+                        <p className="text-xs text-amber-600 mt-1">{service.description}</p>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-xs bg-amber-200 text-amber-800 px-2 py-1 rounded-full">
+                          Esperando Aprobación
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                {getPendingPreventiveServices().length > 3 && (
+                  <p className="text-sm text-amber-600 text-center mt-2">
+                    ... y {getPendingPreventiveServices().length - 3} más
+                  </p>
+                )}
+              </div>
+              <div className="bg-amber-100 p-4 rounded-lg border border-amber-200">
+                <h5 className="font-medium text-amber-800 mb-2">¿Qué son los servicios preventivos?</h5>
+                <p className="text-sm text-amber-700 mb-2">
+                  <strong>Mantenimiento Preventivo:</strong> Orientado al mantenimiento programado del vehículo para prevenir fallas futuras.
+                </p>
+                <p className="text-xs text-amber-600">
+                  Si luego de la evaluación inicial decides no autorizar el servicio sugerido, 
+                  el trabajo se marcará como finalizado sin ejecución, y el empleado asignado 
+                  quedará libre para ser reubicado en otra tarea.
+                </p>
+              </div>
+              <div className="flex justify-between items-center mt-4">
+                <p className="text-sm text-amber-700">
+                  <strong>Los servicios aparecen destacados abajo</strong> con botones grandes para aprobar/rechazar.
+                </p>
+                <button
+                  onClick={() => {
+                    const element = document.querySelector('[data-preventive-services]');
+                    element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                  }}
+                  className="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors duration-200"
+                >
+                  Ver Servicios ↓
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -581,7 +800,7 @@ export default function CustomersPage() {
       </div>
 
       {/* Service History Section */}
-      <div className="bg-white border border-gray-200 rounded-lg p-6">
+      <div className="bg-white border border-gray-200 rounded-lg p-6" data-preventive-services>
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
             <FaHistory className="text-blue-600" size={20} />
@@ -747,16 +966,25 @@ export default function CustomersPage() {
                 )}
 
                 {workOrder.maintenanceType === 'Preventive' && 
-                 (workOrder.status === 'Assigned' || workOrder.status === 'Evaluating') && (
-                  <div className="mb-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                 (workOrder.status === 'Evaluating' || workOrder.status === 'On Hold') && (
+                  <PreventiveServiceApproval 
+                    workOrder={workOrder} 
+                    onApprove={handleApprovePreventiveService}
+                    onReject={handleRejectPreventiveService}
+                  />
+                )}
+
+                {workOrder.maintenanceType === 'Preventive' && 
+                 workOrder.status === 'Assigned' && (
+                  <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                     <div className="flex items-start gap-2">
-                      <FaExclamationTriangle className="text-yellow-600 mt-1 flex-shrink-0" size={16} />
+                      <FaCogs className="text-blue-600 mt-1 flex-shrink-0" size={16} />
                       <div>
-                        <p className="text-sm font-medium text-yellow-800 mb-1">
-                          Requiere tu autorización
+                        <p className="text-sm font-medium text-blue-800 mb-1">
+                          Servicio Preventivo Asignado
                         </p>
-                        <p className="text-xs text-yellow-700">
-                          Este servicio preventivo necesita tu aprobación para continuar. Puedes aprobarlo o rechazarlo usando los botones de abajo.
+                        <p className="text-xs text-blue-700">
+                          Este servicio está orientado al mantenimiento programado del vehículo. Una vez iniciado por el empleado, podrá requerir tu autorización para continuar.
                         </p>
                       </div>
                     </div>
@@ -771,7 +999,7 @@ export default function CustomersPage() {
                   </div>
                   <div className="flex gap-2">
                     {workOrder.maintenanceType === 'Preventive' && 
-                     (workOrder.status === 'Assigned' || workOrder.status === 'Evaluating') && (
+                     workOrder.status === 'Assigned' && (
                       <>
                         <button
                           onClick={() => handleApprovePreventiveService(workOrder)}

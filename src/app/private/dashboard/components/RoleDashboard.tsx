@@ -71,7 +71,7 @@ export default function RoleDashboard({ children }: Props) {
       { label: "Órdenes",   href: "/private/work-orders",   Icon: FaClipboardList },
     ],
     EMPLOYEE: [
-      { label: "Trabajos asignados",href: "/private/work-orders", Icon: FaClipboardCheck },
+      { label: "Trabajos asignados",href: "/private/employee", Icon: FaClipboardCheck },
     ],
     SPECIALIST: [
       { label: "Intervenciones",      href: "/private/work-orders", Icon: FaTools },

@@ -388,7 +388,7 @@ export async function updateWorkOrderStatus(
   comment?: string
 ): Promise<WorkOrder> {
   try {
-    console.log('🔍 Starting updateWorkOrderStatus for ID:', workOrderId, 'New Status:', newStatus)
+    console.log('Starting updateWorkOrderStatus for ID:', workOrderId, 'New Status:', newStatus)
 
     // Get current work order data from API directly (this gives us the raw data needed for PUT)
     const apiResponse = await httpClient(`${BASE_URL}/api/Work/order/${workOrderId}?id=${workOrderId}`)
@@ -398,7 +398,7 @@ export async function updateWorkOrderStatus(
       throw new Error(`Work order with ID ${workOrderId} not found`)
     }
 
-    console.log('📋 Current work order API data:', apiData)
+    console.log('Current work order API data:', apiData)
 
     const statusMap: { [key: number]: string } = {
       1: 'Created',
@@ -416,7 +416,7 @@ export async function updateWorkOrderStatus(
       throw new Error(`Invalid status code: ${newStatus}`)
     }
 
-    console.log('🎯 Changing status to:', statusString, '(', newStatus, ')')
+    console.log('Changing status to:', statusString, '(', newStatus, ')')
 
     // Use the exact data structure from the API response for the PUT
     const updateData = {
@@ -446,25 +446,25 @@ export async function updateWorkOrderStatus(
 
     if (!response.ok) {
       const errorData = await response.text()
-      console.error('❌ Update error response:', errorData)
+      console.error('Update error response:', errorData)
       throw new Error(`HTTP error! status: ${response.status}, details: ${errorData}`)
     }
 
-    console.log('✅ Status update successful!')
+    console.log('Status update successful!')
 
     // Create work log if comment is provided
     if (comment) {
       try {
-        console.log('📝 Creating work log...')
+        console.log('Creating work log...')
         await createWorkLog({
           workOrderId: workOrderId,
           autorId: 1, // TODO: Get actual user ID from session
           logType: "PROGRESS",
-          note: `${comment} - Status changed to: ${statusString}`,
+          note: `${comment} - Estado cambiado a: ${statusString}`,
           hours: 0
         })
       } catch (logError) {
-        console.warn('⚠️ Failed to create work log:', logError)
+        console.warn('Failed to create work log:', logError)
       }
     }
 
@@ -483,7 +483,7 @@ export async function updateWorkOrderStatus(
       closedAt: updateData.closedAt || currentWorkOrderFormatted?.closedAt
     }
   } catch (error) {
-    console.error('❌ Error updating work order status:', error)
+    console.error('Error updating work order status:', error)
     throw error
   }
 }

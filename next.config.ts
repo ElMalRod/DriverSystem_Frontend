@@ -9,7 +9,6 @@ const nextConfig = {
       // { source: "/api/debug-status", destination: "/api/debug-status" },
       // { source: "/api/patch-status", destination: "/api/patch-status" },
       
-      // Solo redirigir rutas que NO tienen proxies personalizados
       { 
         source: "/api/Work/:path*", 
         destination: "http://localhost:8080/api/Work/:path*" 
