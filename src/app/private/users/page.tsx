@@ -12,6 +12,7 @@ declare global {
 
 export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([])
+  const [filteredUsers, setFilteredUsers] = useState<User[]>([])
   const [roles, setRoles] = useState<Role[]>([])
   const [loading, setLoading] = useState(true)
   const [rolesLoading, setRolesLoading] = useState(true)
@@ -19,6 +20,8 @@ export default function UsersPage() {
   const [showEditUser, setShowEditUser] = useState(false)
   const [editingUser, setEditingUser] = useState<User | null>(null)
   const [error, setError] = useState("")
+  const [selectedRole, setSelectedRole] = useState<string>("all")
+  const [searchTerm, setSearchTerm] = useState("")
 
   const [formData, setFormData] = useState({
     userName: "",
@@ -37,11 +40,16 @@ export default function UsersPage() {
     loadRoles()
   }, [])
 
+  useEffect(() => {
+    filterUsers()
+  }, [users, selectedRole, searchTerm])
+
   async function loadUsers() {
     try {
       setLoading(true)
       const data = await getUsers()
-      const sortedUsers = Array.isArray(data) ? data.sort((a, b) => a.id - b.id) : []
+      // Ordenar por ID descendente para mostrar los más recientes primero
+      const sortedUsers = Array.isArray(data) ? data.sort((a, b) => b.id - a.id) : []
       setUsers(sortedUsers)
     } catch (err: any) {
       setError(err.message)
@@ -55,6 +63,43 @@ export default function UsersPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  function filterUsers() {
+    // Verificar que tenemos usuarios para filtrar
+    if (!users || users.length === 0) {
+      setFilteredUsers([])
+      return
+    }
+    
+    let filtered = [...users]
+    
+    // Filtrar por rol
+    if (selectedRole !== "all") {
+      filtered = filtered.filter(user => user.roleName === selectedRole)
+    }
+    
+    // Filtrar por término de búsqueda
+    if (searchTerm.trim()) {
+      const term = searchTerm.toLowerCase()
+      filtered = filtered.filter(user => {
+        // Función auxiliar para verificar si un campo contiene el término de búsqueda
+        const fieldContainsTerm = (field: string | null | undefined) => {
+          return field ? field.toLowerCase().includes(term) : false
+        }
+        
+        return (
+          fieldContainsTerm(user.name) ||
+          fieldContainsTerm(user.email) ||
+          fieldContainsTerm(user.userName) ||
+          fieldContainsTerm(user.docNumber) ||
+          fieldContainsTerm(user.roleName) ||
+          fieldContainsTerm(user.phoneNumber)
+        )
+      })
+    }
+    
+    setFilteredUsers(filtered)
   }
 
   async function loadRoles() {
@@ -87,7 +132,8 @@ export default function UsersPage() {
       }
 
       const newUser = await createUser(newUserData)
-      setUsers(prev => [...prev, newUser].sort((a, b) => a.id - b.id))
+      // Mantener el orden descendente por ID
+      setUsers(prev => [newUser, ...prev])
       resetForm()
       setShowCreateUser(false)
       
@@ -133,7 +179,7 @@ export default function UsersPage() {
       const updatedUser = await updateUserData(updateData)
       setUsers(prev => prev.map(u => 
         u.id === updatedUser.id ? updatedUser : u
-      ).sort((a, b) => a.id - b.id))
+      ))
       
       resetForm()
       setShowEditUser(false)
@@ -299,14 +345,27 @@ export default function UsersPage() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         {roles.map(role => {
           const count = users.filter(u => u.roleName === role.name).length
+          const isSelected = selectedRole === role.name
           return (
-            <div key={role.id} className="bg-white border border-gray-200 rounded-lg p-4">
+            <div 
+              key={role.id} 
+              className={`bg-white border border-gray-200 rounded-lg p-4 cursor-pointer transition-all hover:shadow-md ${
+                isSelected ? 'ring-2 ring-[var(--color-primary)] bg-blue-50' : ''
+              }`}
+              onClick={() => setSelectedRole(isSelected ? "all" : role.name)}
+            >
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-600">{role.name}</p>
                   <p className="text-2xl font-bold text-[var(--color-primary)]">{count}</p>
+                  {isSelected && (
+                    <p className="text-xs text-[var(--color-primary)] mt-1">Filtrando...</p>
+                  )}
                 </div>
-                <FaShieldAlt className="text-[var(--color-primary)] opacity-70" size={24} />
+                <FaShieldAlt 
+                  className={`opacity-70 ${isSelected ? 'text-[var(--color-primary)]' : 'text-[var(--color-primary)]'}`} 
+                  size={24} 
+                />
               </div>
             </div>
           )
@@ -318,7 +377,7 @@ export default function UsersPage() {
           <div className="flex items-center gap-3">
             <FaUser className="text-[var(--color-primary)]" size={20} />
             <h3 className="text-lg font-semibold">Usuarios del Sistema</h3>
-            <span className="text-sm text-gray-500">({users.length} usuarios)</span>
+            <span className="text-sm text-gray-500">({filteredUsers.length} de {users.length} usuarios)</span>
           </div>
           <button 
             onClick={loadUsers}
@@ -327,6 +386,55 @@ export default function UsersPage() {
             <FaSearch size={12} />
             Actualizar
           </button>
+        </div>
+
+        {/* Controles de filtro */}
+        <div className="flex flex-col sm:flex-row gap-4 mb-6 p-4 bg-gray-50 rounded-lg">
+          <div className="flex-1">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Buscar usuarios
+            </label>
+            <div className="relative">
+              <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={14} />
+              <input
+                type="text"
+                placeholder="Buscar por nombre, email, usuario o documento..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent"
+              />
+            </div>
+          </div>
+          <div className="sm:w-64">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Filtrar por rol
+            </label>
+            <select
+              value={selectedRole}
+              onChange={(e) => setSelectedRole(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent"
+            >
+              <option value="all">Todos los roles</option>
+              {roles.map(role => (
+                <option key={role.id} value={role.name}>
+                  {role.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          {(selectedRole !== "all" || searchTerm.trim()) && (
+            <div className="flex items-end">
+              <button
+                onClick={() => {
+                  setSelectedRole("all")
+                  setSearchTerm("")
+                }}
+                className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-100"
+              >
+                Limpiar filtros
+              </button>
+            </div>
+          )}
         </div>
 
         {loading ? (
@@ -352,7 +460,29 @@ export default function UsersPage() {
                 </tr>
               </thead>
               <tbody>
-                {users.map((user) => (
+                {filteredUsers.length === 0 ? (
+                  <tr>
+                    <td colSpan={10} className="px-4 py-8 text-center text-gray-500">
+                      {loading ? (
+                        <div className="flex items-center justify-center">
+                          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-[var(--color-primary)] mr-2"></div>
+                          Cargando usuarios...
+                        </div>
+                      ) : searchTerm || selectedRole !== "all" ? (
+                        <>
+                          <FaSearch className="mx-auto mb-2 text-gray-400" size={24} />
+                          No se encontraron usuarios con los filtros aplicados
+                        </>
+                      ) : (
+                        <>
+                          <FaUser className="mx-auto mb-2 text-gray-400" size={24} />
+                          No hay usuarios registrados
+                        </>
+                      )}
+                    </td>
+                  </tr>
+                ) : (
+                  filteredUsers.map((user) => (
                   <tr key={user.id} className="border-t border-gray-200 hover:bg-gray-50">
                     <td className="px-4 py-3 text-sm">{user.id}</td>
                     <td className="px-4 py-3 font-medium">{user.name}</td>
@@ -418,16 +548,10 @@ export default function UsersPage() {
                       </div>
                     </td>
                   </tr>
-                ))}
+                  ))
+                )}
               </tbody>
             </table>
-
-            {users.length === 0 && (
-              <div className="text-center py-8">
-                <FaUser className="mx-auto text-gray-400 mb-4" size={48} />
-                <p className="text-gray-600">No hay usuarios registrados</p>
-              </div>
-            )}
           </div>
         )}
       </div>

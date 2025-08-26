@@ -307,11 +307,8 @@ export async function assignVehicleToUser(userId: number, vehicleId: number): Pr
 export async function getUserVehicles(userId: number): Promise<UserVehicleResponse[]> {
   console.log(`[API] Getting vehicles for user: ${userId}`)
   
-  const url = `/api/user/vehicle/${userId}`
-  console.log(`[API] Full URL: ${window.location.origin}${url}`)
-  
   try {
-    const response = await fetch(url, {
+    const response = await fetch(`/api/user/vehicle/${userId}`, {
       method: "GET",
       headers: {
         'Content-Type': 'application/json',
@@ -320,47 +317,19 @@ export async function getUserVehicles(userId: number): Promise<UserVehicleRespon
       credentials: "include"
     })
 
-    console.log(`[API] Response status: ${response.status}`)
-    console.log(`[API] Response URL: ${response.url}`)
-    
-    const responseText = await response.text()
-    console.log(`[API] Raw response: ${responseText.substring(0, 500)}...`)
-
     if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${responseText}`)
+      console.error(`[API] Failed to fetch user vehicles: ${response.status}`)
+      throw new Error(`HTTP ${response.status}: Failed to fetch user vehicles`)
     }
 
-    const data = JSON.parse(responseText)
-    console.log(`[API] Parsed data:`, data)
+    const vehicles = await response.json()
+    console.log(`[API] Got user vehicles:`, vehicles)
     
-    return Array.isArray(data) ? data : []
-
-  } catch (error: any) {
-    if (error.message && error.message.includes('HTTP 404')) {
-      console.log(`[API] Client ${userId} has no vehicles (404)`)
-    } else {
-      console.error(`[API] Error:`, error)
-    }
+    return Array.isArray(vehicles) ? vehicles : []
     
-    if (window.location.hostname === 'localhost') {
-      console.log('[API] Trying direct backend call as fallback...')
-      try {
-        const directResponse = await fetch(`http://localhost:8080/api/user/vehicle/${userId}`, {
-          method: "GET",
-          headers: { 'Content-Type': 'application/json' }
-        })
-      
-        if (directResponse.ok) {
-          const directData = await directResponse.json()
-          console.log('[API] Direct backend call successful:', directData)
-          return Array.isArray(directData) ? directData : []
-        }
-      } catch (directError) {
-        console.error('[API] Direct call also failed:', directError)
-      }
-    }
-    
-    throw error
+  } catch (error) {
+    console.error('[API] Error fetching user vehicles:', error)
+    return []
   }
 }
 

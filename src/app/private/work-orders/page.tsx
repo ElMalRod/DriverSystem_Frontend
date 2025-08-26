@@ -124,15 +124,37 @@ export default function WorkOrdersPage() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'Created': return 'bg-blue-100 text-blue-800'
-      case 'Assigned': return 'bg-yellow-100 text-yellow-800'
+      case 'Pending': return 'bg-yellow-100 text-yellow-800'
+      case 'Assigned': return 'bg-blue-100 text-blue-800'
       case 'In Progress': return 'bg-orange-100 text-orange-800'
+      case 'Evaluating': return 'bg-purple-100 text-purple-800'
       case 'On Hold': return 'bg-gray-100 text-gray-800'
       case 'Completed': return 'bg-green-100 text-green-800'
+      case 'Finished': return 'bg-green-100 text-green-800'
       case 'Cancelled': return 'bg-red-100 text-red-800'
+      case 'Rejected': return 'bg-red-100 text-red-800'
       case 'Closed': return 'bg-purple-100 text-purple-800'
       case 'No Authorized': return 'bg-pink-100 text-pink-800'
       default: return 'bg-gray-100 text-gray-800'
     }
+  }
+
+  const getStatusDisplayName = (status: string) => {
+    const statusNames: { [key: string]: string } = {
+      'Created': 'Creado',
+      'Pending': 'Pendiente',
+      'Assigned': 'Asignado',
+      'In Progress': 'En Progreso',
+      'Evaluating': 'En Evaluación',
+      'On Hold': 'En Espera',
+      'Completed': 'Completado',
+      'Finished': 'Finalizado',
+      'Cancelled': 'Cancelado',
+      'Rejected': 'Rechazado',
+      'Closed': 'Cerrado',
+      'No Authorized': 'No Autorizado'
+    };
+    return statusNames[status] || status;
   }
 
   const getTypeColor = (type: string) => {
@@ -141,6 +163,14 @@ export default function WorkOrdersPage() {
       case 'Preventive': return 'bg-blue-50 text-blue-700 border border-blue-200'
       default: return 'bg-gray-50 text-gray-700 border border-gray-200'
     }
+  }
+
+  const getTypeDisplayName = (type: string) => {
+    const typeNames: { [key: string]: string } = {
+      'Corrective': 'Correctivo',
+      'Preventive': 'Preventivo'
+    };
+    return typeNames[type] || type;
   }
 
   const formatDate = (dateString: string) => {
@@ -236,11 +266,18 @@ export default function WorkOrdersPage() {
             onChange={(e) => setSelectedStatus(e.target.value)}
           >
             <option value="">Todos los estados</option>
-            {workStatus.map((status) => (
-              <option key={status.id} value={status.name}>
-                {status.name}
-              </option>
-            ))}
+            <option value="Created">Creado</option>
+            <option value="Pending">Pendiente</option>
+            <option value="Assigned">Asignado</option>
+            <option value="In Progress">En Progreso</option>
+            <option value="Evaluating">En Evaluación</option>
+            <option value="On Hold">En Espera</option>
+            <option value="Completed">Completado</option>
+            <option value="Finished">Finalizado</option>
+            <option value="Cancelled">Cancelado</option>
+            <option value="Rejected">Rechazado</option>
+            <option value="Closed">Cerrado</option>
+            <option value="No Authorized">No Autorizado</option>
           </select>
 
           <select
@@ -326,13 +363,13 @@ export default function WorkOrdersPage() {
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getTypeColor(order.maintenanceType)}`}>
                       <FaTools className="mr-1" />
-                      {order.maintenanceType}
+                      {getTypeDisplayName(order.maintenanceType)}
                     </span>
                   </td>
 
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(order.status)}`}>
-                      {order.status}
+                      {getStatusDisplayName(order.status)}
                     </span>
                   </td>
 

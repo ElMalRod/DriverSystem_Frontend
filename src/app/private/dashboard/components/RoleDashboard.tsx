@@ -62,7 +62,7 @@ export default function RoleDashboard({ children }: Props) {
 
   const menuByRole: Record<Rol, MenuItem[]> = {
     ADMIN: [
-      { label: "Dashboard", href: "/private/admin",         Icon: FaTachometerAlt },
+      { label: "Inicio", href: "/private/admin",         Icon: FaTachometerAlt },
       { label: "Usuarios",  href: "/private/users",         Icon: FaUser },
       { label: "Vehículos", href: "/private/vehicles",      Icon: FaCar },
       { label: "Visitas",   href: "/private/vehicle-visits", Icon: FaClipboard },
