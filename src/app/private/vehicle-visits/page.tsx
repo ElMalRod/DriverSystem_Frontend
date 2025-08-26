@@ -204,6 +204,43 @@ export default function VehicleVisitsPage() {
       console.log('Creating visit with data:', visitData)
       const newVisit = await createVehicleVisit(visitData)
       
+      // Si hay notas en la visita, buscar y actualizar la orden de trabajo creada automáticamente
+      if (visitData.notes && visitData.notes.length > 0) {
+        try {
+          // Esperar un poco para que el backend cree la orden de trabajo
+          await new Promise(resolve => setTimeout(resolve, 1000))
+          
+          // Buscar órdenes de trabajo recientes para este vehículo y cliente
+          const { getAllWorkOrders } = await import('@/features/work-orders/api')
+          const allWorkOrders = await getAllWorkOrders()
+          
+          // Buscar la orden de trabajo más reciente que coincida con el vehículo y cliente
+          const recentWorkOrder = allWorkOrders
+            .filter(wo => wo.vehicleId === visitData.vehicleId && wo.customerId === visitData.customerId)
+            .filter(wo => wo.description && wo.description.includes('desde visita'))
+            .sort((a, b) => b.id - a.id)[0] // Ordenar por ID descendente y tomar el primero
+          
+          if (recentWorkOrder) {
+            console.log('Found automatically created work order:', recentWorkOrder.id)
+            const { updateWorkOrderInfo } = await import('@/features/work-orders/api')
+            
+            // Actualizar la descripción con las notas de la visita
+            await updateWorkOrderInfo({
+              id: recentWorkOrder.id,
+              description: visitData.notes,
+              estimatedHours: recentWorkOrder.estimatedHours || null,
+              typeId: 1, // Usar un valor por defecto para typeId
+              workOrder: recentWorkOrder
+            })
+            
+            console.log('Updated work order description with visit notes')
+          }
+        } catch (updateError) {
+          console.warn('Could not update work order description:', updateError)
+          // No mostrar error al usuario, solo registrar en consola
+        }
+      }
+      
       setVisits(prev => [...prev, newVisit])
       resetCreateForm()
       setShowCreateModal(false)
