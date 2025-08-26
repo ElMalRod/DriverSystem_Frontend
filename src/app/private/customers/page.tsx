@@ -18,12 +18,20 @@ import {
   FaSearch,
   FaChevronDown,
   FaHistory,
-  FaWrench
+  FaWrench,
+  FaClipboardCheck,
+  FaStickyNote,
+  FaSearch as FaDiagnosis,
+  FaCogs,
+  FaExclamationTriangle,
+  FaComments,
+  FaThumbsUp,
+  FaThumbsDown
 } from "react-icons/fa";
 import { getSessionUser } from "@/utils/session";
 import { getUserVehicles, UserVehicleResponse } from "@/features/vehicles/api";
 import { getVehicleVisitsByCustomer, VehicleVisit } from "@/features/vehicle-visits/api";
-import { getAllWorkOrders, WorkOrder } from "@/features/work-orders/api";
+import { getAllWorkOrders, WorkOrder, getWorkLogsByOrder, WorkLog, updateWorkOrderStatus } from "@/features/work-orders/api";
 
 declare global {
   interface Window {
@@ -69,7 +77,6 @@ export default function CustomersPage() {
     } catch (err: any) {
       console.error("[CUSTOMERS] Error loading user vehicles:", err);
 
-      // Mostrar error al usuario
       if (window.Swal) {
         window.Swal.fire({
           icon: "error",
@@ -91,12 +98,10 @@ export default function CustomersPage() {
       console.log("[CUSTOMERS] Loading service history for user:", userId);
       setServicesLoading(true);
 
-      // Cargar visitas de vehículos
       const visits = await getVehicleVisitsByCustomer(Number(userId));
       console.log("[CUSTOMERS] Vehicle visits loaded:", visits);
       setVehicleVisits(Array.isArray(visits) ? visits : []);
 
-      // Cargar órdenes de trabajo del cliente
       const allWorkOrders = await getAllWorkOrders();
       const customerWorkOrders = allWorkOrders.filter(wo => wo.customerId === Number(userId));
       console.log("[CUSTOMERS] Work orders loaded:", customerWorkOrders);
@@ -125,17 +130,14 @@ export default function CustomersPage() {
   function getFilteredWorkOrders() {
     let filtered = [...workOrders];
 
-    // Filtrar por vehículo seleccionado
     if (selectedVehicle !== "all") {
       filtered = filtered.filter(wo => wo.vehicleId === selectedVehicle);
     }
 
-    // Filtrar por estado
     if (selectedStatus !== "all") {
       filtered = filtered.filter(wo => wo.status === selectedStatus);
     }
 
-    // Filtrar por término de búsqueda
     if (searchTerm.trim()) {
       const term = searchTerm.toLowerCase();
       filtered = filtered.filter(wo => 
@@ -147,7 +149,6 @@ export default function CustomersPage() {
       );
     }
 
-    // Ordenar por fecha más reciente
     return filtered.sort((a, b) => new Date(b.openedAt).getTime() - new Date(a.openedAt).getTime());
   }
 
@@ -203,17 +204,17 @@ export default function CustomersPage() {
         html: `
           <div class="text-left space-y-3">
             <div class="bg-gray-50 p-3 rounded">
-              <p><strong>🚗 Placa:</strong> ${vehicleData.plate}</p>
-              <p><strong>🏭 Marca:</strong> ${vehicleData.make}</p>
-              <p><strong>🚙 Modelo:</strong> ${vehicleData.model}</p>
+              <p><strong>Placa:</strong> ${vehicleData.plate}</p>
+              <p><strong>Marca:</strong> ${vehicleData.make}</p>
+              <p><strong>Modelo:</strong> ${vehicleData.model}</p>
             </div>
             <div class="bg-blue-50 p-3 rounded">
-              <p><strong>🎨 Color:</strong> ${vehicleData.color || "No especificado"}</p>
-              <p><strong>📋 VIN:</strong> ${vehicleData.vin || "No registrado"}</p>
-              <p><strong>🆔 ID Vehículo:</strong> ${vehicleData.id}</p>
+              <p><strong>Color:</strong> ${vehicleData.color || "No especificado"}</p>
+              <p><strong>VIN:</strong> ${vehicleData.vin || "No registrado"}</p>
+              <p><strong>ID Vehículo:</strong> ${vehicleData.id}</p>
             </div>
             <div class="bg-green-50 p-3 rounded">
-              <p><strong>📅 Registrado:</strong> ${new Date(
+              <p><strong>Registrado:</strong> ${new Date(
                 vehicleData.createdAt
               ).toLocaleString()}</p>
             </div>
@@ -224,6 +225,222 @@ export default function CustomersPage() {
         confirmButtonColor: "#3085d6",
         confirmButtonText: "Cerrar",
       });
+    }
+  }
+
+  async function handleViewWorkLogs(workOrder: WorkOrder) {
+    try {
+      if (window.Swal) {
+        window.Swal.fire({
+          title: 'Cargando registros...',
+          text: 'Por favor espera mientras cargamos los registros de trabajo.',
+          allowOutsideClick: false,
+          allowEscapeKey: false,
+          showConfirmButton: false,
+          didOpen: () => {
+            window.Swal.showLoading();
+          }
+        });
+
+        const workLogs = await getWorkLogsByOrder(workOrder.id);
+        
+        let logsHtml = '';
+        if (workLogs && workLogs.length > 0) {
+          logsHtml = workLogs.map((log: WorkLog) => {
+            const logTypeDisplay = getLogTypeDisplayName(log.logType);
+            const logDate = log.logCreatedAt ? new Date(log.logCreatedAt).toLocaleString('es-ES') : 'Fecha no registrada';
+            
+            return `
+              <div class="border-l-4 border-blue-500 bg-gray-50 p-3 mb-3 rounded-r-lg">
+                <div class="flex items-center gap-2 mb-2">
+                  <span class="font-semibold text-sm text-blue-800">${logTypeDisplay}</span>
+                  <span class="text-xs text-gray-500">${logDate}</span>
+                </div>
+                <p class="text-sm text-gray-700 mb-1">${log.note}</p>
+                ${log.hours > 0 ? `<p class="text-xs text-gray-500">Tiempo registrado: ${log.hours} horas</p>` : ''}
+              </div>
+            `;
+          }).join('');
+        } else {
+          logsHtml = `
+            <div class="text-center py-6">
+              <p class="text-gray-600">No hay registros de trabajo disponibles para esta orden.</p>
+              <p class="text-sm text-gray-500 mt-2">Los registros aparecerán aquí conforme el personal del taller trabaje en tu vehículo.</p>
+            </div>
+          `;
+        }
+
+        window.Swal.fire({
+          title: `Registros de Trabajo - Orden #${workOrder.code}`,
+          html: `
+            <div class="text-left">
+              <div class="bg-blue-50 p-3 rounded-lg mb-4">
+                <p class="text-sm"><strong>Vehículo:</strong> ${workOrder.plate} - ${workOrder.make} ${workOrder.model}</p>
+                <p class="text-sm"><strong>Descripción:</strong> ${workOrder.description || 'Sin descripción'}</p>
+                <p class="text-sm"><strong>Estado:</strong> ${getStatusDisplayName(workOrder.status)}</p>
+              </div>
+              <div style="max-height: 400px; overflow-y: auto;">
+                <h4 class="font-semibold mb-3 text-gray-800">Historial de Registros:</h4>
+                ${logsHtml}
+              </div>
+            </div>
+          `,
+          icon: "info",
+          width: "700px",
+          confirmButtonColor: "#3085d6",
+          confirmButtonText: "Cerrar",
+          customClass: {
+            htmlContainer: 'text-left'
+          }
+        });
+      }
+    } catch (error) {
+      console.error('[CUSTOMERS] Error loading work logs:', error);
+      if (window.Swal) {
+        window.Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: 'No se pudieron cargar los registros de trabajo. Intenta nuevamente.',
+          confirmButtonColor: '#d33'
+        });
+      }
+    }
+  }
+
+  function getLogTypeDisplayName(logType: string) {
+    const typeNames: { [key: string]: string } = {
+      'NOTE': 'Nota',
+      'DIAGNOSIS': 'Diagnóstico',
+      'PROGRESS': 'Progreso',
+      'ISSUE': 'Problema',
+      'CUSTOMER_NOTE': 'Nota del Cliente'
+    };
+    return typeNames[logType] || logType;
+  }
+
+  async function handleApprovePreventiveService(workOrder: WorkOrder) {
+    try {
+      if (window.Swal) {
+        const result = await window.Swal.fire({
+          title: 'Aprobar Servicio Preventivo',
+          html: `
+            <div class="text-left">
+              <p class="mb-3"><strong>¿Estás seguro que deseas aprobar este servicio preventivo?</strong></p>
+              <div class="bg-blue-50 p-3 rounded-lg">
+                <p><strong>Orden:</strong> #${workOrder.code}</p>
+                <p><strong>Vehículo:</strong> ${workOrder.plate} - ${workOrder.make} ${workOrder.model}</p>
+                <p><strong>Descripción:</strong> ${workOrder.description || 'Sin descripción'}</p>
+                <p><strong>Tiempo estimado:</strong> ${workOrder.estimatedHours || 'No especificado'}h</p>
+              </div>
+            </div>
+          `,
+          icon: 'question',
+          showCancelButton: true,
+          confirmButtonColor: '#10B981',
+          cancelButtonColor: '#6B7280',
+          confirmButtonText: 'Sí, Aprobar',
+          cancelButtonText: 'Cancelar'
+        });
+
+        if (result.isConfirmed) {
+          window.Swal.fire({
+            title: 'Procesando...',
+            text: 'Aprobando el servicio preventivo',
+            allowOutsideClick: false,
+            allowEscapeKey: false,
+            showConfirmButton: false,
+            didOpen: () => {
+              window.Swal.showLoading();
+            }
+          });
+
+          await updateWorkOrderStatus(workOrder.id, 3, 'Servicio preventivo aprobado por el cliente');
+          
+          if (currentUser?.id) {
+            await loadServiceHistory(currentUser.id);
+          }
+
+          window.Swal.fire({
+            icon: 'success',
+            title: '¡Servicio Aprobado!',
+            text: 'El servicio preventivo ha sido aprobado y comenzará pronto.',
+            confirmButtonColor: '#10B981'
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error approving preventive service:', error);
+      if (window.Swal) {
+        window.Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: 'No se pudo aprobar el servicio. Intenta nuevamente.',
+          confirmButtonColor: '#EF4444'
+        });
+      }
+    }
+  }
+
+  async function handleRejectPreventiveService(workOrder: WorkOrder) {
+    try {
+      if (window.Swal) {
+        const result = await window.Swal.fire({
+          title: 'Rechazar Servicio Preventivo',
+          html: `
+            <div class="text-left">
+              <p class="mb-3"><strong>¿Estás seguro que deseas rechazar este servicio preventivo?</strong></p>
+              <div class="bg-red-50 p-3 rounded-lg mb-3">
+                <p><strong>Orden:</strong> #${workOrder.code}</p>
+                <p><strong>Vehículo:</strong> ${workOrder.plate} - ${workOrder.make} ${workOrder.model}</p>
+                <p><strong>Descripción:</strong> ${workOrder.description || 'Sin descripción'}</p>
+              </div>
+              <p class="text-sm text-gray-600">Al rechazar este servicio, la orden se marcará como finalizada sin ejecución y el empleado asignado quedará disponible para otras tareas.</p>
+            </div>
+          `,
+          icon: 'warning',
+          showCancelButton: true,
+          confirmButtonColor: '#EF4444',
+          cancelButtonColor: '#6B7280',
+          confirmButtonText: 'Sí, Rechazar',
+          cancelButtonText: 'Cancelar'
+        });
+
+        if (result.isConfirmed) {
+          window.Swal.fire({
+            title: 'Procesando...',
+            text: 'Rechazando el servicio preventivo',
+            allowOutsideClick: false,
+            allowEscapeKey: false,
+            showConfirmButton: false,
+            didOpen: () => {
+              window.Swal.showLoading();
+            }
+          });
+
+          await updateWorkOrderStatus(workOrder.id, 8, 'Servicio preventivo rechazado por el cliente');
+          
+          if (currentUser?.id) {
+            await loadServiceHistory(currentUser.id);
+          }
+
+          window.Swal.fire({
+            icon: 'info',
+            title: 'Servicio Rechazado',
+            text: 'El servicio preventivo ha sido rechazado. La orden se ha marcado como finalizada.',
+            confirmButtonColor: '#3B82F6'
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error rejecting preventive service:', error);
+      if (window.Swal) {
+        window.Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: 'No se pudo rechazar el servicio. Intenta nuevamente.',
+          confirmButtonColor: '#EF4444'
+        });
+      }
     }
   }
 
@@ -413,7 +630,6 @@ export default function CustomersPage() {
                 </select>
               </div>
 
-              {/* Filtro por estado */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Estado del servicio
@@ -439,7 +655,6 @@ export default function CustomersPage() {
                 </select>
               </div>
 
-              {/* Búsqueda */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Buscar servicio
@@ -457,7 +672,6 @@ export default function CustomersPage() {
               </div>
             </div>
 
-            {/* Botón limpiar filtros */}
             {(selectedVehicle !== "all" || selectedStatus !== "all" || searchTerm.trim()) && (
               <div className="flex justify-end">
                 <button
@@ -475,7 +689,6 @@ export default function CustomersPage() {
           </div>
         )}
 
-        {/* Lista de servicios */}
         {servicesLoading ? (
           <div className="flex justify-center items-center py-8">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--color-primary)]"></div>
@@ -533,6 +746,23 @@ export default function CustomersPage() {
                   </div>
                 )}
 
+                {workOrder.maintenanceType === 'Preventive' && 
+                 (workOrder.status === 'Assigned' || workOrder.status === 'Evaluating') && (
+                  <div className="mb-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                    <div className="flex items-start gap-2">
+                      <FaExclamationTriangle className="text-yellow-600 mt-1 flex-shrink-0" size={16} />
+                      <div>
+                        <p className="text-sm font-medium text-yellow-800 mb-1">
+                          Requiere tu autorización
+                        </p>
+                        <p className="text-xs text-yellow-700">
+                          Este servicio preventivo necesita tu aprobación para continuar. Puedes aprobarlo o rechazarlo usando los botones de abajo.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 <div className="flex justify-between items-center pt-3 border-t border-gray-100">
                   <div className="text-xs text-gray-500">
                     {workOrder.estimatedHours && (
@@ -540,6 +770,35 @@ export default function CustomersPage() {
                     )}
                   </div>
                   <div className="flex gap-2">
+                    {workOrder.maintenanceType === 'Preventive' && 
+                     (workOrder.status === 'Assigned' || workOrder.status === 'Evaluating') && (
+                      <>
+                        <button
+                          onClick={() => handleApprovePreventiveService(workOrder)}
+                          className="text-green-600 hover:text-green-800 p-2 rounded-md hover:bg-green-50 flex items-center gap-1"
+                          title="Aprobar servicio preventivo"
+                        >
+                          <FaThumbsUp size={14} />
+                          <span className="text-xs hidden sm:inline">Aprobar</span>
+                        </button>
+                        <button
+                          onClick={() => handleRejectPreventiveService(workOrder)}
+                          className="text-red-600 hover:text-red-800 p-2 rounded-md hover:bg-red-50 flex items-center gap-1"
+                          title="Rechazar servicio preventivo"
+                        >
+                          <FaThumbsDown size={14} />
+                          <span className="text-xs hidden sm:inline">Rechazar</span>
+                        </button>
+                      </>
+                    )}
+                    <button
+                      onClick={() => handleViewWorkLogs(workOrder)}
+                      className="text-green-600 hover:text-green-800 p-2 rounded-md hover:bg-green-50 flex items-center gap-1"
+                      title="Ver registros de trabajo"
+                    >
+                      <FaClipboardCheck size={14} />
+                      <span className="text-xs hidden sm:inline">Registros</span>
+                    </button>
                     <button
                       onClick={() => {
                         if (window.Swal) {
@@ -548,18 +807,18 @@ export default function CustomersPage() {
                             html: `
                               <div class="text-left space-y-3">
                                 <div class="bg-gray-50 p-3 rounded">
-                                  <p><strong>🚗 Vehículo:</strong> ${workOrder.plate} - ${workOrder.make} ${workOrder.model}</p>
-                                  <p><strong>🎨 Color:</strong> ${workOrder.color}</p>
-                                  <p><strong>📋 VIN:</strong> ${workOrder.vin || "No registrado"}</p>
+                                  <p><strong>Vehículo:</strong> ${workOrder.plate} - ${workOrder.make} ${workOrder.model}</p>
+                                  <p><strong>Color:</strong> ${workOrder.color}</p>
+                                  <p><strong>VIN:</strong> ${workOrder.vin || "No registrado"}</p>
                                 </div>
                                 <div class="bg-blue-50 p-3 rounded">
-                                  <p><strong>📅 Iniciado:</strong> ${new Date(workOrder.openedAt).toLocaleString('es-ES')}</p>
-                                  ${workOrder.closedAt ? `<p><strong>🏁 Finalizado:</strong> ${new Date(workOrder.closedAt).toLocaleString('es-ES')}</p>` : ''}
-                                  <p><strong>⏱️ Tiempo estimado:</strong> ${workOrder.estimatedHours || 'No especificado'}h</p>
+                                  <p><strong>Iniciado:</strong> ${new Date(workOrder.openedAt).toLocaleString('es-ES')}</p>
+                                  ${workOrder.closedAt ? `<p><strong>Finalizado:</strong> ${new Date(workOrder.closedAt).toLocaleString('es-ES')}</p>` : ''}
+                                  <p><strong>Tiempo estimado:</strong> ${workOrder.estimatedHours || 'No especificado'}h</p>
                                 </div>
                                 <div class="bg-green-50 p-3 rounded">
-                                  <p><strong>📝 Descripción:</strong> ${workOrder.description || 'Sin descripción'}</p>
-                                  <p><strong>👤 Creado por:</strong> ${workOrder.createdBy}</p>
+                                  <p><strong>Descripción:</strong> ${workOrder.description || 'Sin descripción'}</p>
+                                  <p><strong>Creado por:</strong> ${workOrder.createdBy}</p>
                                 </div>
                               </div>
                             `,
