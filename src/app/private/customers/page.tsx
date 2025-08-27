@@ -30,7 +30,6 @@ import {
 } from "react-icons/fa";
 import { getSessionUser } from "@/utils/session";
 import { getUserVehicles, UserVehicleResponse } from "@/features/vehicles/api";
-import { getVehicleVisitsByCustomer, VehicleVisit } from "@/features/vehicle-visits/api";
 import { getAllWorkOrders, WorkOrder, getWorkLogsByOrder, WorkLog, updateWorkOrderStatus } from "@/features/work-orders/api";
 
 declare global {
@@ -163,7 +162,6 @@ function PreventiveServiceApproval({
 export default function CustomersPage() {
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [userVehicles, setUserVehicles] = useState<UserVehicleResponse[]>([]);
-  const [vehicleVisits, setVehicleVisits] = useState<VehicleVisit[]>([]);
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [vehiclesLoading, setVehiclesLoading] = useState(true);
@@ -219,10 +217,7 @@ export default function CustomersPage() {
       console.log("[CUSTOMERS] Loading service history for user:", userId);
       setServicesLoading(true);
 
-      const visits = await getVehicleVisitsByCustomer(Number(userId));
-      console.log("[CUSTOMERS] Vehicle visits loaded:", visits);
-      setVehicleVisits(Array.isArray(visits) ? visits : []);
-
+      // Solo cargar work orders que es lo que realmente necesitamos
       const allWorkOrders = await getAllWorkOrders();
       const customerWorkOrders = allWorkOrders.filter(wo => wo.customerId === Number(userId));
       console.log("[CUSTOMERS] Work orders loaded:", customerWorkOrders);
@@ -241,7 +236,6 @@ export default function CustomersPage() {
         });
       }
 
-      setVehicleVisits([]);
       setWorkOrders([]);
     } finally {
       setServicesLoading(false);
