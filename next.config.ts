@@ -29,7 +29,12 @@ const nextConfig = {
       { 
         source: "/api/maintenance/:path*", 
         destination: "http://localhost:8080/api/maintenance/:path*" 
-      }
+      },
+      { 
+        source: "/api/supplier-products/:path*", 
+        destination: "http://localhost:8080/api/supplier-products/:path*" 
+      },
+// ...existing code...
     ];
   },
 };

@@ -67,7 +67,9 @@ export default function RoleDashboard({ children }: Props) {
       { label: "Vehículos", href: "/private/vehicles",      Icon: FaCar },
       { label: "Visitas",   href: "/private/vehicle-visits", Icon: FaClipboard },
       { label: "Reportes",  href: "/private/reports",       Icon: FaChartBar },
-      { label: "Inventario",href: "/private/inventory",     Icon: FaBoxes },
+      { label: "Inventario",href: "/private/inventary",     Icon: FaBoxes },
+      { label: "Producto de Proveedor",href: "/private/supplier-product",     Icon: FaBoxes },
+      { label: "Ordenes a Proveedor",href: "/private/supplier-product",     Icon: FaBoxes },
       { label: "Órdenes",   href: "/private/work-orders",   Icon: FaClipboardList },
     ],
     EMPLOYEE: [
@@ -77,11 +79,14 @@ export default function RoleDashboard({ children }: Props) {
       { label: "Intervenciones",      href: "/private/work-orders", Icon: FaTools },
     ],
     CUSTOMER: [
-      { label: "Mis servicios", href: "/private/customers",         Icon: FaClipboardList },
+      { label: "Inicio", href: "/private/admin",         Icon: FaTachometerAlt },
+      { label: "Mis servicios", href: "/private/supplier",         Icon: FaClipboardList },
       { label: "Mis facturas",  href: "/private/invoices",          Icon: FaFileInvoiceDollar },
     ],
     SUPPLIER: [
-      { label: "Pedidos activos",   href: "/private/supplier",         Icon: FaTruck },
+      { label: "Inicio", href: "/private/supplier",         Icon: FaTachometerAlt },
+      { label: "Productos",href: "/private/supplier-op-product",     Icon: FaBoxes },
+      { label: "Pedidos activos",   href: "/private/supplier-op-orden",         Icon: FaTruck },
       { label: "Órdenes de compra", href: "/private/purchase-orders",  Icon: FaShoppingCart },
     ],
   }
