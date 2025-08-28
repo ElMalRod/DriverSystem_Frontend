@@ -29,7 +29,9 @@ import {
   FaPlay,
   FaStop,
   FaPlus,
-  FaPause
+  FaPause,
+  FaFileInvoiceDollar,
+  FaShoppingCart
 } from "react-icons/fa";
 import { getSessionUser } from "@/utils/session";
 import { 
@@ -45,6 +47,7 @@ import {
   createWorkAssignment
 } from "@/features/work-orders/api";
 import { getUsers, User } from "@/features/users/api";
+import { getAllProducts, getProductCategories, createQuotation, Product, ProductCategory } from "@/features/quotations/api";
 
 declare global {
   interface Window {
@@ -60,6 +63,11 @@ export default function EmployeePage() {
   const [ordersLoading, setOrdersLoading] = useState(true);
   const [specialists, setSpecialists] = useState<User[]>([]);
   const [loadingSpecialists, setLoadingSpecialists] = useState(false);
+  
+  // Estados para cotizaciones
+  const [products, setProducts] = useState<Product[]>([]);
+  const [productCategories, setProductCategories] = useState<ProductCategory[]>([]);
+  const [loadingProducts, setLoadingProducts] = useState(false);
   
   // Filtros
   const [selectedStatus, setSelectedStatus] = useState<string>("all");
@@ -866,6 +874,204 @@ ${newType === 'Preventive'
     }
   }
 
+  async function loadProducts() {
+    try {
+      console.log("[DEBUG] Starting to load products...");
+      setLoadingProducts(true);
+      const [productsData, categoriesData] = await Promise.all([
+        getAllProducts(),
+        getProductCategories()
+      ]);
+      
+      console.log("[DEBUG] API Response - Products:", productsData);
+      console.log("[DEBUG] API Response - Categories:", categoriesData);
+      
+      setProducts(productsData);
+      setProductCategories(categoriesData);
+      console.log("[EMPLOYEE] Products loaded:", productsData);
+      console.log("[DEBUG] Products state updated, current length:", productsData.length);
+    } catch (error) {
+      console.error("Error loading products:", error);
+      setProducts([]);
+      setProductCategories([]);
+    } finally {
+      setLoadingProducts(false);
+    }
+  }
+
+  async function handleCreateQuotation(workOrder: WorkOrder) {
+    try {
+      console.log("[DEBUG] Starting quotation creation for work order:", workOrder.id);
+      
+      let currentProducts = products;
+      
+      // Cargar productos si no están cargados
+      if (products.length === 0) {
+        console.log("[DEBUG] Products not loaded, loading now...");
+        try {
+          const [productsData, categoriesData] = await Promise.all([
+            getAllProducts(),
+            getProductCategories()
+          ]);
+          
+          console.log("[DEBUG] Fresh API data - Products:", productsData);
+          
+          // Actualizar el estado
+          setProducts(productsData);
+          setProductCategories(categoriesData);
+          
+          // Usar los datos frescos de la API directamente
+          currentProducts = productsData;
+        } catch (loadError) {
+          console.error("[DEBUG] Error loading products in modal:", loadError);
+          if (window.Swal) {
+            window.Swal.fire({
+              icon: 'error',
+              title: 'Error de conexión',
+              text: 'No se pudieron cargar los productos. Verifica tu conexión e intenta nuevamente.',
+              confirmButtonColor: '#EF4444'
+            });
+          }
+          return;
+        }
+      } else {
+        console.log("[DEBUG] Products already loaded:", products.length, "products");
+        currentProducts = products;
+      }
+
+      // Verificar si tenemos productos después de la carga
+      if (!currentProducts || currentProducts.length === 0) {
+        console.error("[DEBUG] No products available after loading");
+        if (window.Swal) {
+          window.Swal.fire({
+            icon: 'warning',
+            title: 'Sin productos disponibles',
+            text: 'No hay productos o servicios disponibles para cotizar. Contacta al administrador.',
+            confirmButtonColor: '#EF4444'
+          });
+        }
+        return;
+      }
+
+      if (window.Swal) {
+        const productsOptions = currentProducts.map(p => `<option value="${p.id}" data-price="${p.price}">${p.name} - $${p.price}</option>`).join('');
+        console.log("[DEBUG] Generated options for", currentProducts.length, "products");
+        console.log("[DEBUG] First few options:", productsOptions.substring(0, 200));
+        
+        const { value: formValues } = await window.Swal.fire({
+          title: 'Crear Cotización',
+          html: `
+            <div class="text-left space-y-4">
+              <div class="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                <h4 class="font-semibold text-blue-900 mb-2">Orden: ${workOrder.code}</h4>
+                <div class="space-y-1 text-sm">
+                  <p><span class="font-medium">Vehículo:</span> ${workOrder.plate} - ${workOrder.make} ${workOrder.model}</p>
+                  <p><span class="font-medium">Cliente:</span> ${workOrder.customer}</p>
+                  <p><span class="font-medium">Tipo:</span> ${getMaintenanceTypeDisplayName(workOrder.maintenanceType)}</p>
+                </div>
+              </div>
+              
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Producto/Servicio:</label>
+                <select id="swal-product" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                  <option value="">Seleccionar producto/servicio...</option>
+                  ${productsOptions}
+                </select>
+              </div>
+              
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Cantidad:</label>
+                <input type="number" id="swal-quantity" min="1" value="1" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+              </div>
+              
+              <div class="bg-gray-50 p-3 rounded-lg">
+                <p class="text-sm text-gray-600">
+                  <strong>Nota:</strong> Esta es una cotización básica. El cliente podrá ver el precio estimado y aprobar o rechazar el servicio.
+                </p>
+                <p class="text-xs text-gray-500 mt-2">
+                  Productos disponibles: ${currentProducts.length}
+                </p>
+              </div>
+            </div>
+          `,
+          focusConfirm: false,
+          showCancelButton: true,
+          confirmButtonColor: '#3B82F6',
+          cancelButtonColor: '#6B7280',
+          confirmButtonText: 'Crear Cotización',
+          cancelButtonText: 'Cancelar',
+          width: '600px',
+          preConfirm: () => {
+            const productId = parseInt((document.getElementById('swal-product') as HTMLSelectElement).value);
+            const quantity = parseInt((document.getElementById('swal-quantity') as HTMLInputElement).value);
+            
+            if (!productId) {
+              window.Swal.showValidationMessage('Por favor selecciona un producto/servicio');
+              return false;
+            }
+            
+            if (!quantity || quantity < 1) {
+              window.Swal.showValidationMessage('Por favor ingresa una cantidad válida');
+              return false;
+            }
+            
+            return { productId, quantity };
+          }
+        });
+
+        if (formValues) {
+          window.Swal.fire({
+            title: 'Creando cotización...',
+            html: '<div class="text-center"><div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-3"></div><p class="text-gray-600">Generando la cotización para el cliente</p></div>',
+            allowOutsideClick: false,
+            allowEscapeKey: false,
+            showConfirmButton: false
+          });
+
+          // Crear la cotización
+          const quotationRequest = {
+            workOrderId: workOrder.id,
+            approveBy: workOrder.customerId,
+            item: [{
+              productId: formValues.productId,
+              quantity: formValues.quantity
+            }]
+          };
+
+          await createQuotation(quotationRequest);
+
+          // Crear un log automático
+          const selectedProduct = currentProducts.find(p => p.id === formValues.productId);
+          await createWorkLog({
+            workOrderId: workOrder.id,
+            autorId: Number(currentUser?.id) || 1,
+            logType: 'PROGRESS' as any,
+            note: `COTIZACIÓN GENERADA\\n\\nProducto/Servicio: ${selectedProduct?.name || 'N/A'}\\nCantidad: ${formValues.quantity}\\nPrecio unitario: $${selectedProduct?.price || 0}\\n\\nLa cotización ha sido enviada al cliente para su aprobación.`,
+            hours: 0
+          });
+
+          window.Swal.fire({
+            icon: 'success',
+            title: '¡Cotización Creada!',
+            html: '<div class="text-left"><p class="text-green-800 mb-3"><strong>La cotización ha sido generada exitosamente.</strong></p><div class="bg-green-50 p-4 rounded-lg border border-green-200"><p class="text-sm">El cliente podrá ver y aprobar/rechazar esta cotización desde su portal.</p></div></div>',
+            confirmButtonColor: '#10B981',
+            confirmButtonText: 'Entendido'
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error creating quotation:', error);
+      if (window.Swal) {
+        window.Swal.fire({
+          icon: 'error',
+          title: 'Error al crear cotización',
+          text: 'No se pudo generar la cotización. Verifica tu conexión e intenta nuevamente.',
+          confirmButtonColor: '#EF4444'
+        });
+      }
+    }
+  }
+
   async function handleRequestSpecialistSupport(workOrder: WorkOrder) {
     try {
       if (specialists.length === 0) {
@@ -1325,6 +1531,17 @@ ${newType === 'Preventive'
                       <FaClipboardCheck size={14} />
                       <span className="text-xs hidden sm:inline">Ver Registros</span>
                     </button>
+
+                    {(workOrder.status === 'In Progress' || workOrder.status === 'Assigned') && (
+                      <button
+                        onClick={() => handleCreateQuotation(workOrder)}
+                        className="text-green-600 hover:text-green-800 p-2 rounded-md hover:bg-green-50 flex items-center gap-1"
+                        title="Crear cotización para el cliente"
+                      >
+                        <FaFileInvoiceDollar size={12} />
+                        <span className="text-xs hidden sm:inline">Cotizar</span>
+                      </button>
+                    )}
 
                     {(workOrder.status === 'In Progress' || workOrder.status === 'Assigned') && (
                       <button

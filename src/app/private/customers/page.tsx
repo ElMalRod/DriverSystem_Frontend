@@ -26,11 +26,24 @@ import {
   FaExclamationTriangle,
   FaComments,
   FaThumbsUp,
-  FaThumbsDown
+  FaThumbsDown,
+  FaFileInvoiceDollar,
+  FaDollarSign,
+  FaCalculator
 } from "react-icons/fa";
 import { getSessionUser } from "@/utils/session";
 import { getUserVehicles, UserVehicleResponse } from "@/features/vehicles/api";
 import { getAllWorkOrders, WorkOrder, getWorkLogsByOrder, WorkLog, updateWorkOrderStatus } from "@/features/work-orders/api";
+import { 
+  getQuotationsByWorkOrder, 
+  getQuotationsByUser, 
+  updateQuotationStatus, 
+  Quotation, 
+  QuotationStatusRequest,
+  QuotationResponse,
+  QuotationDetail,
+  QuotationItemResponse
+} from "@/features/quotations/api";
 
 declare global {
   interface Window {
@@ -159,13 +172,148 @@ function PreventiveServiceApproval({
   );
 }
 
+// Helper function para calcular el total de una cotización
+function calculateQuotationTotal(items: QuotationItemResponse[]): number {
+  return items.reduce((sum, item) => sum + (item.quantity * item.price), 0);
+}
+
+// Componente para mostrar cotizaciones pendientes
+function QuotationsSection({ 
+  quotations, 
+  loading, 
+  onApprove, 
+  onReject 
+}: { 
+  quotations: QuotationResponse[];
+  loading: boolean;
+  onApprove: (quotation: QuotationResponse) => Promise<void>;
+  onReject: (quotation: QuotationResponse) => Promise<void>;
+}) {
+  const pendingQuotations = quotations.filter(q => q.quotation.status === 'DRAFT' || q.quotation.status === 'SENT');
+
+  if (loading) {
+    return (
+      <div className="bg-white rounded-lg shadow-md p-6">
+        <div className="flex items-center justify-center py-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          <span className="ml-3 text-gray-600">Cargando cotizaciones...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (pendingQuotations.length === 0) {
+    return (
+      <div className="bg-white rounded-lg shadow-md p-6">
+        <div className="flex items-center mb-4">
+          <FaFileInvoiceDollar className="text-green-600 mr-3" size={24} />
+          <h3 className="text-lg font-semibold text-gray-800">Cotizaciones Pendientes</h3>
+        </div>
+        <div className="text-center py-8">
+          <FaFileInvoiceDollar className="mx-auto text-gray-300 mb-4" size={48} />
+          <p className="text-gray-500">No hay cotizaciones pendientes de aprobación</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-white rounded-lg shadow-md p-6">
+      <div className="flex items-center mb-6">
+        <FaFileInvoiceDollar className="text-green-600 mr-3" size={24} />
+        <h3 className="text-lg font-semibold text-gray-800">
+          Cotizaciones Pendientes ({pendingQuotations.length})
+        </h3>
+      </div>
+
+      <div className="space-y-4">
+        {pendingQuotations.map((quotationResponse) => {
+          const quotation = quotationResponse.quotation;
+          const items = quotationResponse.itemResponse;
+          const total = calculateQuotationTotal(items);
+          
+          return (
+            <div key={quotation.id} className="border border-orange-200 rounded-lg p-4 bg-orange-50">
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                <div className="flex-1">
+                  <div className="flex items-center mb-2">
+                    <FaCalculator className="text-orange-600 mr-2" size={16} />
+                    <h4 className="font-semibold text-orange-900">
+                      Cotización {quotation.code}
+                    </h4>
+                    <span className="ml-2 px-2 py-1 bg-orange-200 text-orange-800 rounded-full text-xs">
+                      {quotation.status === 'DRAFT' ? 'Pendiente' : quotation.status}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <p><span className="font-medium">Orden de Trabajo:</span> #{quotation.workOrderId}</p>
+                      <p><span className="font-medium">Fecha:</span> {new Date(quotation.createdAt).toLocaleDateString('es-ES')}</p>
+                    </div>
+                    <div>
+                      <p><span className="font-medium">Total Estimado:</span> 
+                        <span className="text-lg font-bold text-green-600 ml-1">
+                          ${total.toFixed(2)}
+                        </span>
+                      </p>
+                    </div>
+                  </div>
+
+                  {items && items.length > 0 && (
+                    <div className="mt-3">
+                      <p className="font-medium text-sm text-gray-700 mb-2">Productos/Servicios:</p>
+                      <div className="bg-white rounded-md p-3">
+                        {items.map((item, index) => (
+                          <div key={index} className="flex justify-between items-center py-1">
+                            <div className="flex-1">
+                              <span className="text-sm font-medium">{item.name}</span>
+                              <span className="text-xs text-gray-500 block">{item.brand} - {item.categoria}</span>
+                            </div>
+                            <span className="text-sm font-medium">
+                              {item.quantity} {item.unit} × ${item.price.toFixed(2)} = ${(item.quantity * item.price).toFixed(2)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-2 lg:ml-4">
+                  <button
+                    onClick={() => onApprove(quotationResponse)}
+                    className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md font-medium transition-colors duration-200 flex items-center justify-center gap-2"
+                  >
+                    <FaThumbsUp size={14} />
+                    Aprobar
+                  </button>
+                  <button
+                    onClick={() => onReject(quotationResponse)}
+                    className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md font-medium transition-colors duration-200 flex items-center justify-center gap-2"
+                  >
+                    <FaThumbsDown size={14} />
+                    Rechazar
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function CustomersPage() {
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [userVehicles, setUserVehicles] = useState<UserVehicleResponse[]>([]);
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
+  const [quotations, setQuotations] = useState<QuotationResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [vehiclesLoading, setVehiclesLoading] = useState(true);
   const [servicesLoading, setServicesLoading] = useState(true);
+  const [quotationsLoading, setQuotationsLoading] = useState(true);
   
   // Filtros
   const [selectedVehicle, setSelectedVehicle] = useState<number | "all">("all");
@@ -181,6 +329,7 @@ export default function CustomersPage() {
     if (user?.id) {
       loadUserVehicles(user.id);
       loadServiceHistory(user.id);
+      loadUserQuotations(user.id);
     }
   }, []);
 
@@ -239,6 +388,158 @@ export default function CustomersPage() {
       setWorkOrders([]);
     } finally {
       setServicesLoading(false);
+    }
+  }
+
+  async function loadUserQuotations(userId: string | number) {
+    try {
+      console.log("[CUSTOMERS] Loading quotations for user:", userId);
+      setQuotationsLoading(true);
+
+      const userQuotations = await getQuotationsByUser(Number(userId));
+      console.log("[CUSTOMERS] Quotations loaded:", userQuotations);
+      setQuotations(userQuotations);
+
+    } catch (err: any) {
+      console.error("[CUSTOMERS] Error loading quotations:", err);
+      setQuotations([]);
+    } finally {
+      setQuotationsLoading(false);
+    }
+  }
+
+  async function handleApproveQuotation(quotationResponse: QuotationResponse) {
+    if (!currentUser?.id) return;
+
+    const quotation = quotationResponse.quotation;
+    const items = quotationResponse.itemResponse;
+    const total = calculateQuotationTotal(items);
+
+    try {
+      if (window.Swal) {
+        const result = await window.Swal.fire({
+          title: '¿Aprobar Cotización?',
+          html: `
+            <div class="text-left">
+              <p class="mb-3">¿Estás seguro de que deseas aprobar esta cotización?</p>
+              <div class="bg-green-50 p-4 rounded-lg border border-green-200">
+                <p class="text-sm font-medium text-green-800">Al aprobar:</p>
+                <ul class="text-sm text-green-700 mt-2 space-y-1">
+                  <li>• Se iniciará el trabajo con los productos/servicios cotizados</li>
+                  <li>• El técnico podrá continuar con la orden de trabajo</li>
+                  <li>• Total estimado: $${total.toFixed(2)}</li>
+                  <li>• Productos: ${items.map(i => i.name).join(', ')}</li>
+                </ul>
+              </div>
+            </div>
+          `,
+          icon: 'question',
+          showCancelButton: true,
+          confirmButtonColor: '#10B981',
+          cancelButtonColor: '#6B7280',
+          confirmButtonText: 'Sí, Aprobar',
+          cancelButtonText: 'Cancelar'
+        });
+
+        if (result.isConfirmed) {
+          const statusRequest: QuotationStatusRequest = {
+            id: quotation.id,
+            statusId: 2 // Aprobada
+          };
+
+          await updateQuotationStatus(statusRequest);
+          await loadUserQuotations(currentUser.id);
+
+          window.Swal.fire({
+            icon: 'success',
+            title: '¡Cotización Aprobada!',
+            text: 'La cotización ha sido aprobada. El técnico puede continuar con el trabajo.',
+            confirmButtonColor: '#10B981'
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error approving quotation:', error);
+      if (window.Swal) {
+        window.Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: 'No se pudo aprobar la cotización. Intenta nuevamente.',
+          confirmButtonColor: '#EF4444'
+        });
+      }
+    }
+  }
+
+  async function handleRejectQuotation(quotationResponse: QuotationResponse) {
+    if (!currentUser?.id) return;
+
+    const quotation = quotationResponse.quotation;
+    const items = quotationResponse.itemResponse;
+    const total = calculateQuotationTotal(items);
+
+    try {
+      if (window.Swal) {
+        const { value: rejectionReason } = await window.Swal.fire({
+          title: '¿Rechazar Cotización?',
+          html: `
+            <div class="text-left space-y-4">
+              <p class="text-gray-700">¿Estás seguro de que deseas rechazar esta cotización?</p>
+              <div class="bg-red-50 p-4 rounded-lg border border-red-200">
+                <p class="text-sm font-medium text-red-800">Al rechazar:</p>
+                <ul class="text-sm text-red-700 mt-2 space-y-1">
+                  <li>• Se cancelará esta propuesta de servicios</li>
+                  <li>• El técnico deberá crear una nueva cotización</li>
+                  <li>• Total cotizado: $${total.toFixed(2)}</li>
+                  <li>• Productos: ${items.map(i => i.name).join(', ')}</li>
+                </ul>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Motivo del rechazo (opcional):</label>
+                <textarea id="swal-rejection-reason" class="w-full p-3 border border-gray-300 rounded-lg" rows="3" placeholder="Escribe el motivo por el que rechazas la cotización..."></textarea>
+              </div>
+            </div>
+          `,
+          icon: 'warning',
+          showCancelButton: true,
+          confirmButtonColor: '#EF4444',
+          cancelButtonColor: '#6B7280',
+          confirmButtonText: 'Sí, Rechazar',
+          cancelButtonText: 'Cancelar',
+          focusConfirm: false,
+          preConfirm: () => {
+            const reason = (document.getElementById('swal-rejection-reason') as HTMLTextAreaElement).value;
+            return reason.trim() || 'Sin motivo especificado';
+          }
+        });
+
+        if (rejectionReason) {
+          const statusRequest: QuotationStatusRequest = {
+            id: quotation.id,
+            statusId: 3 // Rechazada
+          };
+
+          await updateQuotationStatus(statusRequest);
+          await loadUserQuotations(currentUser.id);
+
+          window.Swal.fire({
+            icon: 'success',
+            title: 'Cotización Rechazada',
+            text: 'La cotización ha sido rechazada. El técnico será notificado.',
+            confirmButtonColor: '#10B981'
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error rejecting quotation:', error);
+      if (window.Swal) {
+        window.Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: 'No se pudo rechazar la cotización. Intenta nuevamente.',
+          confirmButtonColor: '#EF4444'
+        });
+      }
     }
   }
 
@@ -482,6 +783,7 @@ export default function CustomersPage() {
           
           if (currentUser?.id) {
             await loadServiceHistory(currentUser.id);
+            await loadUserQuotations(currentUser.id);
           }
 
           window.Swal.fire({
@@ -555,6 +857,7 @@ export default function CustomersPage() {
           
           if (currentUser?.id) {
             await loadServiceHistory(currentUser.id);
+            await loadUserQuotations(currentUser.id);
           }
 
           window.Swal.fire({
@@ -625,6 +928,14 @@ export default function CustomersPage() {
           </div>
         </div>
       )}
+
+      {/* Quotations Section */}
+      <QuotationsSection 
+        quotations={quotations}
+        loading={quotationsLoading}
+        onApprove={handleApproveQuotation}
+        onReject={handleRejectQuotation}
+      />
 
       {/* Preventive Services Notification */}
       {!servicesLoading && getPendingPreventiveServices().length > 0 && (
