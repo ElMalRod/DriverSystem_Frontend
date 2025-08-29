@@ -2,7 +2,7 @@ import { httpClient } from '@/services/http';
 import {
   InvoiceResponse,
   InvoiceDetail,
-  InvoiceItemResponse,
+  InvoiceItem,
   PaymentRequest,
   PaymentResponse,
   PaymentDetail
@@ -12,7 +12,7 @@ import {
 export type {
   InvoiceResponse,
   InvoiceDetail,
-  InvoiceItemResponse,
+  InvoiceItem,
   PaymentRequest,
   PaymentResponse,
   PaymentDetail
