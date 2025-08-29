@@ -25,7 +25,6 @@ const nextConfig = {
         source: "/api/vehicle/visit/:path*", 
         destination: "http://localhost:8080/api/vehicle/visit/:path*" 
       },
-      // Fallback para otras rutas de API que no están definidas específicamente
       { 
         source: "/api/maintenance/:path*", 
         destination: "http://localhost:8080/api/maintenance/:path*" 
@@ -34,7 +33,10 @@ const nextConfig = {
         source: "/api/supplier-products/:path*", 
         destination: "http://localhost:8080/api/supplier-products/:path*" 
       },
-// ...existing code...
+            { 
+        source: "/api/supplier-products/supplier/:path*", 
+        destination: "http://localhost:8080/api/supplier-products/supplier/:path*" 
+      },
     ];
   },
 };

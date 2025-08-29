@@ -1,15 +1,36 @@
 export interface SupplierProduct {
   supplierId: number;
-  supplierName: string;
-  supplierEmail: string;
   productId: number;
   productName: string;
   productBrand: string;
+  productCategoryId: number;
   productPrice: number;
   productCost: number;
-  productUnit: number;
-  productCategoryId: number;
+  productUnit: string;
   productCategory: string;
+  stockQuantity: number;
+  leadTimeDays: number;
+}
+
+export interface SupplierProductUpdate {
+  productName: string;
+  productBrand: string;
+  productCategoryId: number;
+  productUnit: string;
+  productPrice: number;
+  productCost: number;
+  stockQuantity: number;
+  leadTimeDays: number;
+}
+
+export interface SupplierProductNew {
+  supplierId: number;
+  productName: string;
+  productBrand: string;
+  productCategory: number;
+  productUnit: string;
+  productPrice: number;
+  productCost: number;
   stockQuantity: number;
   leadTimeDays: number;
 }
@@ -42,7 +63,6 @@ export async function getSupplierProductById(supplierId: number, productId: numb
 
 // OBtener product de supplier por ID
 export async function getProductsBySupplierId(id: number): Promise<SupplierProduct[]> {
-  console.info('userId en API: ',id)
   const res = await fetch(`/api/supplier-products/supplier/${id}`, {
     method: "GET",
     credentials: "include",
@@ -55,7 +75,7 @@ export async function getProductsBySupplierId(id: number): Promise<SupplierProdu
 }
 
 // ...existing code...
-export async function createSupplierProduct(product: Partial<SupplierProduct>): Promise<SupplierProduct> {
+export async function createSupplierProduct( product: Partial<SupplierProduct>): Promise<SupplierProduct> {
   const res = await fetch("/api/supplier-products/", {
     method: "POST",
     credentials: "include",
@@ -66,15 +86,17 @@ export async function createSupplierProduct(product: Partial<SupplierProduct>): 
   return res.json();
 }
 
-export async function updateSupplierProduct(supplierId: number, productId: number, product: Partial<SupplierProduct>): Promise<SupplierProduct> {
+export async function updateSupplierProduct(supplierId: number, productId: number, product: Partial<SupplierProductUpdate>): Promise<SupplierProduct> {
   const res = await fetch(`/api/supplier-products/${supplierId}/${productId}`, {
     method: "PUT",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(product),
   });
-  if (!res.ok) throw new Error("Error al actualizar producto de proveedor");
-  return res.json();
+  if (!res.ok) {
+    throw new Error("Error al actualizar producto de proveedor-> " + await res.text());
+  }
+    return res.json();
 }
 
 export async function deleteSupplierProduct(supplierId: number, productId: number): Promise<void> {

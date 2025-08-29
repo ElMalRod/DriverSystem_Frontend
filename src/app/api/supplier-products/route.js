@@ -16,15 +16,17 @@ export async function GET(req) {
   return NextResponse.json(data)
 }
 
-export async function POST(product) {
-  const res = await fetch(`${API_URL}/api/supplier-products`, {
+export async function POST(req) {
+  const body = await req.json()
+  const res = await fetch(`${API_URL}/api/supplier-products/`, {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(product)
+    body: JSON.stringify(body)
   })
+  const data = await res.json()
   if (!res.ok) {
-    throw new Error("Error al crear producto de proveedor")
+    return NextResponse.json(data, { status: apiRes.status })
   }
-  return res.json()
+  return NextResponse.json(data)
 }
