@@ -17,5 +17,3 @@ export async function POST(req) {
   return NextResponse.json(data)
 }
 
-return NextResponse.json({ error: "Usuario no encontrado" }, { status: 401 })
-

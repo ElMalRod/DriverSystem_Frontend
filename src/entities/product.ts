@@ -80,3 +80,72 @@ export interface QuotationItemDetail {
   unitPrice: number;
   subtotal: number;
 }
+
+// Interfaces para facturas e invoices
+export interface InvoiceDetail {
+  id: number;
+  code: string;
+  type: string;
+  quotation_id: number;
+  goodsReceiptId?: number | null;
+  userId: number;
+  issueDate: string;
+  dueDate?: string | null;
+  status: string;
+  currency: string;
+  notes?: string;
+  total: number;
+  outstandingBalance?: number | null;
+}
+
+export interface InvoiceItem {
+  id: {
+    quotationId: number;
+    productId: number;
+  };
+  quantity: number;
+  name: string;
+  brand: string;
+  unit: string;
+  price: number;
+  categoria: string;
+  subtotal: number;
+}
+
+export interface InvoiceResponse {
+  invoice: InvoiceDetail;
+  item: InvoiceItem[];
+}
+
+// Interfaces para pagos
+export interface PaymentRequest {
+  invoice: number;
+  methodId: number;
+  amount: number;
+  reference?: string;
+}
+
+export interface PaymentView {
+  id: number;
+  userId: number;
+  amount: number;
+  paid_at: string;
+  reference?: string;
+  payment_method: string;
+  invoiceId: number;
+}
+
+export interface PaymentResponse {
+  paymentView: PaymentView;
+  invoice: InvoiceResponse;
+}
+
+export interface PaymentDetail {
+  id: number;
+  invoiceId: number;
+  amount: number;
+  paymentMethod: string;
+  paymentDate: string;
+  notes?: string;
+  status: string;
+}
