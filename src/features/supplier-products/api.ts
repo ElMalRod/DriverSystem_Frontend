@@ -69,7 +69,8 @@ export async function getProductsBySupplierId(id: number): Promise<SupplierProdu
   });
   if (!res.ok) {
     const error = await res.statusText;
-    throw new Error("Error al obtener productos del proveedor-> ", error);
+    console.error('Error response from getProductsBySupplierId: -> ',error);
+    throw new Error("Error al obtener productos del proveedor-> ");
   }
   return res.json();
 }

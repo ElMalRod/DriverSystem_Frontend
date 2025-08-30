@@ -33,9 +33,13 @@ const nextConfig = {
         source: "/api/supplier-products/:path*", 
         destination: "http://localhost:8080/api/supplier-products/:path*" 
       },
-            { 
+      { 
         source: "/api/supplier-products/supplier/:path*", 
         destination: "http://localhost:8080/api/supplier-products/supplier/:path*" 
+      },
+      {
+        source: "/api/purchase-orders/:path*",
+        destination: "http://localhost:8080/api/purchase-orders/:path*"
       },
     ];
   },
