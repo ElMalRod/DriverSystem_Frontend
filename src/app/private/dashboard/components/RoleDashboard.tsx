@@ -87,7 +87,7 @@ export default function RoleDashboard({ children }: Props) {
       { label: "Inicio", href: "/private/supplier",         Icon: FaTachometerAlt },
       { label: "Productos",href: "/private/supplier-op-product",     Icon: FaBoxes },
       { label: "Pedidos activos",   href: "/private/supplier-op-orden",         Icon: FaTruck },
-      { label: "Órdenes de compra", href: "/private/purchase-orders",  Icon: FaShoppingCart },
+      { label: "Órdenes de compra", href: "/private/supplier-op-orders",  Icon: FaShoppingCart },
     ],
   }
 
