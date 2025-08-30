@@ -68,7 +68,7 @@ export default function RoleDashboard({ children }: Props) {
       { label: "Visitas",   href: "/private/vehicle-visits", Icon: FaClipboard },
       { label: "Reportes",  href: "/private/reports",       Icon: FaChartBar },
       { label: "Inventario",href: "/private/inventary",     Icon: FaBoxes },
-      { label: "Producto de Proveedor",href: "/private/supplier-product",     Icon: FaBoxes },
+      { label: "Producto de Proveedor",href: "/private/supplier-product-status",     Icon: FaBoxes },
       { label: "Ordenes a Proveedor",href: "/private/supplier-product",     Icon: FaBoxes },
       { label: "Órdenes",   href: "/private/work-orders",   Icon: FaClipboardList },
     ],
