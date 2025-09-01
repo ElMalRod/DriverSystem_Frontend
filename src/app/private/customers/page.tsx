@@ -572,7 +572,7 @@ export default function CustomersPage() {
                     <option value="COMPLETED">Completado</option>
                     <option value="CANCELLED">Cancelado</option>
                     <option value="PENDING_PREVENTIVE_APPROVAL" className="bg-amber-50 text-amber-800 font-semibold">
-                      🔧 Preventivos Pendientes ({getPendingPreventiveServices().length})
+                      PREVENTIVOS PENDIENTES ({getPendingPreventiveServices().length})
                     </option>
                   </select>
                 </div>
@@ -641,7 +641,7 @@ export default function CustomersPage() {
                           {(workOrder.status === 'PENDING_PREVENTIVE_APPROVAL' ||
                             (workOrder.status === 'IN_PROGRESS' && workOrder.description?.toLowerCase().includes('preventivo')) ||
                             (workOrder.status === 'On Hold' && workOrder.maintenanceType === 'Preventive')) && (
-                            <span className="ml-2 text-amber-700 font-bold">🔧 PREVENTIVO</span>
+                            <span className="ml-2 text-amber-700 font-bold"> PREVENTIVO</span>
                           )}
                         </h4>
                         <span className={`ml-2 px-2 py-1 rounded-full text-xs ${
@@ -697,31 +697,160 @@ export default function CustomersPage() {
                         <button
                           onClick={async () => {
                             try {
+                              console.log('Cargando registros de trabajo...');
                               const logs = await getWorkLogsByOrder(workOrder.id);
+                              console.log('Logs obtenidos:', logs);
+
                               if (window.Swal) {
                                 const logsHtml = logs.length > 0
-                                  ? logs.map(log => `
-                                      <div class="bg-gray-50 p-3 rounded mb-2 border-l-4 border-blue-500">
-                                        <div class="flex justify-between items-start mb-2">
-                                          <span class="font-medium text-blue-900">${log.note.split('\n')[0]}</span>
-                                          <span class="text-xs text-gray-500">${new Date(log.logCreatedAt || '').toLocaleString('es-ES')}</span>
+                                  ? logs.map(log => {
+                                      console.log('Procesando log:', log.note);
+
+                                      // Limpiar el texto de \n y formatear
+                                      const cleanNote = log.note.replace(/\\n/g, ' ').replace(/\n/g, ' ').trim();
+                                      console.log('Nota limpiada:', cleanNote);
+
+                                      // Arreglar fecha inválida - usar fecha de hoy si no hay fecha
+                                      let formattedDate = 'Fecha no disponible';
+                                      if (log.logCreatedAt) {
+                                        const date = new Date(log.logCreatedAt);
+                                        if (!isNaN(date.getTime())) {
+                                          formattedDate = date.toLocaleDateString('es-ES', {
+                                            year: 'numeric',
+                                            month: 'short',
+                                            day: 'numeric',
+                                            hour: '2-digit',
+                                            minute: '2-digit'
+                                          });
+                                        } else {
+                                          // Si es inválida, usar fecha actual
+                                          const now = new Date();
+                                          formattedDate = now.toLocaleDateString('es-ES', {
+                                            year: 'numeric',
+                                            month: 'short',
+                                            day: 'numeric',
+                                            hour: '2-digit',
+                                            minute: '2-digit'
+                                          });
+                                        }
+                                      } else {
+                                        // Si no hay fecha, usar fecha actual
+                                        const now = new Date();
+                                        formattedDate = now.toLocaleDateString('es-ES', {
+                                          year: 'numeric',
+                                          month: 'short',
+                                          day: 'numeric',
+                                          hour: '2-digit',
+                                          minute: '2-digit'
+                                        });
+                                      }
+
+                                      // Determinar el tipo de actividad y icono
+                                      let activityType = 'actividad';
+                                      let iconClass = 'fas fa-info-circle text-blue-500';
+                                      let bgColor = 'bg-blue-50 border-blue-200';
+
+                                      if (cleanNote.includes('COTIZACIÓN GENERADA')) {
+                                        activityType = 'cotización';
+                                        iconClass = 'fas fa-calculator text-green-500';
+                                        bgColor = 'bg-green-50 border-green-200';
+                                      } else if (cleanNote.includes('Trabajo iniciado')) {
+                                        activityType = 'inicio de trabajo';
+                                        iconClass = 'fas fa-play-circle text-blue-500';
+                                        bgColor = 'bg-blue-50 border-blue-200';
+                                      } else if (cleanNote.includes('CAMBIO DE TIPO')) {
+                                        activityType = 'cambio de mantenimiento';
+                                        iconClass = 'fas fa-exchange-alt text-orange-500';
+                                        bgColor = 'bg-orange-50 border-orange-200';
+                                      } else if (cleanNote.includes('Servicio preventivo')) {
+                                        activityType = 'servicio preventivo';
+                                        iconClass = 'fas fa-shield-alt text-purple-500';
+                                        bgColor = 'bg-purple-50 border-purple-200';
+                                      } else if (cleanNote.includes('Estado cambiado')) {
+                                        activityType = 'actualización de estado';
+                                        iconClass = 'fas fa-sync-alt text-gray-500';
+                                        bgColor = 'bg-gray-50 border-gray-200';
+                                      }
+
+                                      // Simplificar el mensaje para el cliente
+                                      let displayMessage = cleanNote;
+
+                                      // Para cotizaciones, mostrar solo productos y precios
+                                      if (cleanNote.includes('COTIZACIÓN GENERADA')) {
+                                        const lines = cleanNote.split('Producto/Servicio:');
+                                        if (lines.length > 1) {
+                                          const productInfo = lines[1].split('La cotización')[0].trim();
+                                          displayMessage = `Cotización generada: ${productInfo}`;
+                                        }
+                                      }
+
+                                      // Para cambios de mantenimiento, simplificar
+                                      if (cleanNote.includes('CAMBIO DE TIPO')) {
+                                        displayMessage = 'Solicitud de cambio a mantenimiento preventivo';
+                                      }
+
+                                      const htmlResult = `
+                                        <div class="${bgColor} p-4 rounded-lg mb-3 border-l-4 ${bgColor.replace('bg-', 'border-')}">
+                                          <div class="flex items-start gap-3">
+                                            <div class="flex-shrink-0 mt-1">
+                                              <i class="${iconClass}"></i>
+                                            </div>
+                                            <div class="flex-1 min-w-0">
+                                              <div class="flex items-center justify-between mb-2">
+                                                <span class="text-sm font-medium text-gray-900 capitalize">${activityType}</span>
+                                                <span class="text-xs text-gray-500">${formattedDate}</span>
+                                              </div>
+                                              <p class="text-sm text-gray-700 leading-relaxed">${displayMessage}</p>
+                                              ${log.autorId ? `<div class="text-xs text-gray-600 mt-2 flex items-center gap-1">
+                                                <i class="fas fa-user text-gray-400"></i>
+                                                Registrado por el taller
+                                              </div>` : ''}
+                                            </div>
+                                          </div>
                                         </div>
-                                        <div class="text-sm text-gray-700 whitespace-pre-line">${log.note}</div>
-                                        ${log.autorId ? `<div class="text-xs text-gray-600 mt-1">Por: Usuario ${log.autorId}</div>` : ''}
+                                      `;
+
+                                      console.log('HTML generado:', htmlResult);
+                                      return htmlResult;
+                                    }).join('')
+                                  : `
+                                    <div class="text-center py-8">
+                                      <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                        <i class="fas fa-clipboard-list text-gray-400 text-2xl"></i>
                                       </div>
-                                    `).join('')
-                                  : '<p class="text-gray-500 text-center py-4">No hay registros de trabajo para esta orden</p>';
+                                      <p class="text-gray-500 font-medium">No hay registros de trabajo</p>
+                                      <p class="text-sm text-gray-400 mt-1">Los registros aparecerán aquí cuando se realice trabajo en tu vehículo</p>
+                                    </div>
+                                  `;
+
+                                console.log('HTML final:', logsHtml);
 
                                 window.Swal.fire({
-                                  title: `📋 Registros de Trabajo - Orden #${workOrder.code}`,
+                                  title: `<i class="fas fa-history text-blue-600 mr-2"></i>Historial de Trabajo - Orden #${workOrder.code}`,
                                   html: `
-                                    <div class="max-h-96 overflow-y-auto">
+                                    <div class="max-h-96 overflow-y-auto px-2">
                                       ${logsHtml}
+                                    </div>
+                                    <div class="mt-4 pt-4 border-t border-gray-200">
+                                      <div class="flex items-center justify-center gap-2 text-sm text-gray-600">
+                                        <i class="fas fa-info-circle text-blue-500"></i>
+                                        <span>Estos son los registros del progreso de tu servicio</span>
+                                      </div>
                                     </div>
                                   `,
                                   width: "700px",
-                                  confirmButtonColor: "#3085d6",
-                                  confirmButtonText: "Cerrar",
+                                  confirmButtonColor: "#3B82F6",
+                                  confirmButtonText: '<i class="fas fa-check mr-2"></i>Entendido',
+                                  customClass: {
+                                    popup: 'rounded-2xl',
+                                    confirmButton: 'rounded-lg font-medium px-6 py-2.5'
+                                  },
+                                  showClass: {
+                                    popup: 'animate__animated animate__fadeInDown'
+                                  },
+                                  hideClass: {
+                                    popup: 'animate__animated animate__fadeOutUp'
+                                  }
                                 });
                               }
                             } catch (error) {
@@ -729,8 +858,18 @@ export default function CustomersPage() {
                               if (window.Swal) {
                                 window.Swal.fire({
                                   icon: 'error',
-                                  title: 'Error',
-                                  text: 'No se pudieron cargar los registros de trabajo',
+                                  title: '<i class="fas fa-exclamation-triangle mr-2"></i>Error al cargar registros',
+                                  html: `
+                                    <div class="text-center py-4">
+                                      <p class="text-gray-700 mb-2">No se pudieron cargar los registros de trabajo</p>
+                                      <p class="text-sm text-gray-500">Por favor intenta nuevamente</p>
+                                    </div>
+                                  `,
+                                  confirmButtonColor: '#EF4444',
+                                  confirmButtonText: '<i class="fas fa-redo mr-2"></i>Intentar de nuevo',
+                                  customClass: {
+                                    popup: 'rounded-2xl'
+                                  }
                                 });
                               }
                             }
@@ -756,7 +895,7 @@ export default function CustomersPage() {
               <div className="flex items-start gap-3">
                 <FaInfo className="text-blue-600 mt-0.5 flex-shrink-0" size={16} />
                 <div>
-                  <h4 className="font-medium text-blue-800 mb-1">ℹ️ Acerca de los Servicios Preventivos</h4>
+                  <h4 className="font-medium text-blue-800 mb-1">Acerca de los Servicios Preventivos</h4>
                   <p className="text-sm text-blue-700">
                     Cuando un empleado solicita cambiar un trabajo a mantenimiento preventivo, aparecerá aquí una notificación
                     destacada pidiendo tu aprobación. Los servicios preventivos requieren autorización antes de ejecutarse

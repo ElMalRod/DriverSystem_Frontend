@@ -18,7 +18,7 @@ export interface VehicleVisitCreateRequest {
   status?: string
 }
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
 
 export async function getAllVehicleVisits(): Promise<VehicleVisit[]> {
   try {

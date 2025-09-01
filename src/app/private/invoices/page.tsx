@@ -22,7 +22,8 @@ import {
   FaMoneyCheck,
   FaRedo,
   FaCheck,
-  FaFileInvoice
+  FaFileInvoice,
+  FaDownload
 } from "react-icons/fa";
 import { getSessionUser } from "@/utils/session";
 import {
@@ -42,6 +43,7 @@ import {
   getPaymentMethods,
   PaymentMethod
 } from "@/features/invoices/api";
+import { downloadInvoicePDF } from "@/utils/invoicePDF";
 import type { InvoiceItem } from "@/entities/product";
 
 declare global {
@@ -188,12 +190,14 @@ function InvoicesSection({
   invoices,
   payments,
   loading,
-  onMakePayment
+  onMakePayment,
+  onDownloadInvoice
 }: {
   invoices: InvoiceResponse[];
   payments: PaymentResponse[];
   loading: boolean;
   onMakePayment: (invoice: InvoiceResponse) => Promise<void>;
+  onDownloadInvoice: (invoice: InvoiceResponse) => Promise<void>;
 }) {
   const pendingInvoices = invoices.filter(inv => {
     const invoice = inv.invoice;
@@ -379,11 +383,20 @@ function InvoicesSection({
                 </div>
 
                 <div className="flex flex-col sm:flex-row gap-2 lg:ml-4">
+                  {/* Botón de descarga PDF */}
+                  <button
+                    onClick={() => onDownloadInvoice(invoiceResponse)}
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-medium transition-colors duration-200 flex items-center justify-center gap-2"
+                  >
+                    <FaDownload size={14} />
+                    Descargar PDF
+                  </button>
+
                   {/* Mostrar botón de pago para facturas con saldo pendiente */}
                   {(() => {
                     // Calcular outstandingBalance correctamente
                     let outstandingBalance = invoice.outstandingBalance ?? 0;
-                    
+
                     // Para facturas ISSUED con outstandingBalance = 0, asumir que no han sido pagadas
                     if (invoice.status === 'ISSUED' && outstandingBalance === 0) {
                       outstandingBalance = invoice.total ?? 0;
@@ -423,6 +436,41 @@ function PaymentsSection({
   payments: PaymentResponse[];
   loading: boolean;
 }) {
+  const [downloadingInvoice, setDownloadingInvoice] = useState<number | null>(null);
+
+  const handleDownloadInvoice = async (paymentResponse: PaymentResponse) => {
+    setDownloadingInvoice(paymentResponse.paymentView.id);
+    try {
+      const invoice = paymentResponse.invoice;
+      // Preparar los datos de la factura para el PDF
+      const invoiceData = {
+        id: invoice.invoice.id,
+        code: invoice.invoice.code,
+        createdAt: invoice.invoice.issueDate,
+        status: 'PAID', // En el historial de pagos, estas facturas están pagadas
+        totalAmount: invoice.invoice.total,
+        pendingAmount: 0, // Ya están pagadas
+        items: invoice.item.map(item => ({
+          id: item.id.quotationId || 0,
+          description: `${item.name} - ${item.brand} (${item.categoria})`,
+          quantity: item.quantity,
+          price: item.price,
+          total: item.subtotal
+        })),
+        customerName: 'Cliente',
+        customerEmail: '',
+        customerPhone: ''
+      };
+
+      await downloadInvoicePDF(invoiceData);
+    } catch (error) {
+      console.error('Error downloading invoice PDF:', error);
+      alert('Error al descargar la factura. Por favor, inténtalo de nuevo.');
+    } finally {
+      setDownloadingInvoice(null);
+    }
+  };
+
   if (loading) {
     return (
       <div className="bg-white rounded-lg shadow-md p-6">
@@ -493,6 +541,26 @@ function PaymentsSection({
                       )}
                     </div>
                   </div>
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <button
+                    onClick={() => handleDownloadInvoice(paymentResponse)}
+                    disabled={downloadingInvoice === payment.id}
+                    className="flex items-center justify-center px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 text-sm"
+                  >
+                    {downloadingInvoice === payment.id ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                        Generando...
+                      </>
+                    ) : (
+                      <>
+                        <FaDownload className="mr-2" size={14} />
+                        Descargar PDF
+                      </>
+                    )}
+                  </button>
                 </div>
               </div>
             </div>
@@ -726,14 +794,20 @@ export default function InvoicesPage() {
 
     const invoice = invoiceResponse.invoice;
     const items = invoiceResponse.item;
+
     // Calcular outstandingBalance correctamente
-    let outstandingBalance = invoice.outstandingBalance ?? 0;
-    
-    // Para facturas ISSUED con outstandingBalance = 0, asumir que no han sido pagadas
-    if (invoice.status === 'ISSUED' && outstandingBalance === 0) {
+    let outstandingBalance = invoice.outstandingBalance;
+
+    // CORRECCIÓN TEMPORAL: Si outstandingBalance es 0 pero la factura no está marcada como pagada,
+    // asumir que es un error del backend y usar el total como pendiente
+    if (outstandingBalance === 0 && invoice.status !== 'PAID' && invoice.status !== 'CANCELLED') {
       outstandingBalance = invoice.total ?? 0;
     }
-    
+    // Si es null/undefined, usar total como pendiente (factura nueva)
+    else if (outstandingBalance === null || outstandingBalance === undefined) {
+      outstandingBalance = invoice.total ?? 0;
+    }
+
     const paidAmount = invoice.total - outstandingBalance;
 
     try {
@@ -1070,6 +1144,113 @@ export default function InvoicesPage() {
     }
   }
 
+  // Función para descargar factura en PDF
+  const handleDownloadInvoice = async (invoiceResponse: InvoiceResponse) => {
+    try {
+      // Mostrar loading
+      window.Swal.fire({
+        title: '<i class="fas fa-file-pdf mr-2"></i>Generando PDF...',
+        html: `
+          <div class="text-center py-4">
+            <div class="animate-spin rounded-full h-8 w-8 border-b-4 border-blue-500 mx-auto mb-4"></div>
+            <p class="text-gray-600">Estamos generando tu factura en PDF</p>
+            <p class="text-sm text-gray-500 mt-2">Por favor espera un momento...</p>
+          </div>
+        `,
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        showConfirmButton: false,
+        didOpen: () => {
+          window.Swal.showLoading();
+        }
+      });
+
+      // Convertir InvoiceResponse a InvoiceData
+      const invoiceData = {
+        id: invoiceResponse.invoice.id,
+        code: invoiceResponse.invoice.code,
+        createdAt: invoiceResponse.invoice.issueDate,
+        status: invoiceResponse.invoice.status,
+        totalAmount: invoiceResponse.invoice.total,
+        pendingAmount: invoiceResponse.invoice.outstandingBalance || 0,
+        items: invoiceResponse.item.map(item => ({
+          id: item.id.quotationId, // Usar quotationId como ID único
+          description: `${item.name} - ${item.brand}`,
+          quantity: item.quantity,
+          price: item.price,
+          total: item.subtotal
+        })),
+        customerName: currentUser?.name || 'Cliente',
+        customerEmail: currentUser?.email || '',
+        customerPhone: '' // No tenemos teléfono en los datos actuales
+      };
+
+      // Usar la función existente para descargar PDF
+      await downloadInvoicePDF(invoiceData);
+
+      // Cerrar loading
+      window.Swal.close();
+
+      // Mostrar éxito
+      window.Swal.fire({
+        title: '<i class="fas fa-check-circle mr-2"></i>¡PDF Generado!',
+        html: `
+          <div class="text-center py-4">
+            <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <i class="fas fa-file-pdf text-3xl text-green-600"></i>
+            </div>
+            <p class="text-gray-700 mb-3">Tu factura se ha descargado exitosamente.</p>
+            <div class="bg-gray-50 p-3 rounded-lg text-sm">
+              <p><strong>Factura:</strong> ${invoiceResponse.invoice.code}</p>
+              <p><strong>Archivo:</strong> ${invoiceResponse.invoice.code}.pdf</p>
+            </div>
+          </div>
+        `,
+        icon: 'success',
+        confirmButtonColor: '#10B981',
+        confirmButtonText: '<i class="fas fa-check mr-2"></i>Perfecto',
+        width: '450px',
+        customClass: {
+          popup: 'rounded-2xl'
+        },
+        timer: 3000,
+        timerProgressBar: true,
+        showConfirmButton: true
+      });
+
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+
+      // Cerrar loading si está abierto
+      if (window.Swal) {
+        window.Swal.close();
+      }
+
+      window.Swal.fire({
+        title: '<i class="fas fa-times mr-2"></i>Error al Generar PDF',
+        html: `
+          <div class="text-center py-4">
+            <div class="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <i class="fas fa-times text-3xl text-red-600"></i>
+            </div>
+            <p class="text-gray-700 mb-3">No se pudo generar el PDF de la factura.</p>
+            <p class="text-sm text-gray-500">Por favor intenta nuevamente.</p>
+          </div>
+        `,
+        icon: 'error',
+        confirmButtonColor: '#EF4444',
+        confirmButtonText: '<i class="fas fa-redo mr-2"></i>Intentar de Nuevo',
+        width: '450px',
+        customClass: {
+          popup: 'rounded-2xl'
+        },
+        timer: 3000,
+        timerProgressBar: true,
+        showConfirmButton: true
+      });
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-[200px]">
@@ -1077,6 +1258,286 @@ export default function InvoicesPage() {
       </div>
     );
   }
+
+  // Componente InvoicesSection
+  const InvoicesSection = ({
+    invoices,
+    payments,
+    loading,
+    onMakePayment,
+    onDownloadInvoice
+  }: {
+    invoices: InvoiceResponse[];
+    payments: PaymentResponse[];
+    loading: boolean;
+    onMakePayment: (invoice: InvoiceResponse) => Promise<void>;
+    onDownloadInvoice: (invoice: InvoiceResponse) => Promise<void>;
+  }) => {
+    if (loading) {
+      return (
+        <div className="bg-white border border-gray-200 rounded-lg p-6">
+          <div className="flex justify-center items-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--color-primary)]"></div>
+          </div>
+        </div>
+      );
+    }
+
+    const pendingInvoices = invoices.filter(inv => {
+      const outstandingBalance = inv.invoice.outstandingBalance;
+      const total = inv.invoice.total ?? 0;
+      const status = inv.invoice.status;
+
+      // Lógica corregida para determinar si está pendiente:
+      // 1. Si outstandingBalance es null/undefined, asumir pendiente
+      // 2. Si outstandingBalance === 0 pero status no indica pagada, asumir error del backend y tratar como pendiente
+      // 3. Si outstandingBalance > 0, definitivamente pendiente
+      if (outstandingBalance === null || outstandingBalance === undefined) {
+        return total > 0;
+      }
+      if (outstandingBalance === 0 && status !== 'PAID' && status !== 'CANCELLED') {
+        return total > 0;
+      }
+      return outstandingBalance > 0;
+    });
+
+    const paidInvoices = invoices.filter(inv => {
+      const outstandingBalance = inv.invoice.outstandingBalance;
+      const status = inv.invoice.status;
+      // Solo considerar pagada si outstandingBalance es 0 Y el status lo confirma
+      return outstandingBalance === 0 && (status === 'PAID' || status === 'CANCELLED');
+    });
+
+    return (
+      <div className="bg-white border border-gray-200 rounded-lg p-6">
+        <div className="flex items-center gap-3 mb-6">
+          <FaFileInvoice className="text-[var(--color-primary)]" size={24} />
+          <h2 className="text-xl font-semibold text-[var(--color-dark)]">
+            Mis Facturas
+          </h2>
+        </div>
+
+        {/* Facturas Pendientes */}
+        {pendingInvoices.length > 0 && (
+          <div className="mb-8">
+            <h3 className="text-lg font-medium text-gray-800 mb-4 flex items-center gap-2">
+              <FaClock className="text-orange-500" />
+              Facturas Pendientes
+            </h3>
+            <div className="space-y-4">
+              {pendingInvoices.map((invoiceResponse) => {
+                const invoice = invoiceResponse.invoice;
+                // Calcular correctamente el saldo pendiente para mostrar
+                let outstandingBalance = invoice.outstandingBalance;
+                const status = invoice.status;
+
+                // Aplicar la misma corrección que en handleMakePayment
+                if (outstandingBalance === 0 && status !== 'PAID' && status !== 'CANCELLED') {
+                  outstandingBalance = invoice.total ?? 0;
+                } else if (outstandingBalance === null || outstandingBalance === undefined) {
+                  outstandingBalance = invoice.total ?? 0;
+                }
+
+                const isOverdue = invoice.dueDate && new Date(invoice.dueDate) < new Date();
+
+                return (
+                  <div key={invoice.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                    <div className="flex justify-between items-start mb-3">
+                      <div>
+                        <h4 className="font-semibold text-lg text-[var(--color-dark)]">
+                          {invoice.code}
+                        </h4>
+                        <p className="text-sm text-gray-600">
+                          Fecha: {new Date(invoice.issueDate).toLocaleDateString('es-ES')}
+                        </p>
+                        {invoice.dueDate && (
+                          <p className={`text-sm ${isOverdue ? 'text-red-600 font-medium' : 'text-gray-600'}`}>
+                            Vence: {new Date(invoice.dueDate).toLocaleDateString('es-ES')}
+                            {isOverdue && ' (Vencida)'}
+                          </p>
+                        )}
+                      </div>
+                      <div className="text-right">
+                        <p className="text-2xl font-bold text-[var(--color-primary)]">
+                          ${invoice.total.toFixed(2)} {invoice.currency}
+                        </p>
+                        <p className="text-sm text-gray-600">
+                          Pendiente: ${outstandingBalance.toFixed(2)}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => onMakePayment(invoiceResponse)}
+                        className="flex-1 bg-[var(--color-primary)] text-white py-2 px-4 rounded-lg hover:bg-opacity-90 transition-colors flex items-center justify-center gap-2"
+                      >
+                        <FaDollarSign size={16} />
+                        Pagar
+                      </button>
+                      <button
+                        onClick={() => onDownloadInvoice(invoiceResponse)}
+                        className="bg-blue-500 text-white py-2 px-4 rounded-lg hover:bg-blue-600 transition-colors flex items-center justify-center gap-2"
+                      >
+                        <FaDownload size={16} />
+                        PDF
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Facturas Pagadas */}
+        {paidInvoices.length > 0 && (
+          <div>
+            <h3 className="text-lg font-medium text-gray-800 mb-4 flex items-center gap-2">
+              <FaCheckCircle className="text-green-500" />
+              Facturas Pagadas
+            </h3>
+            <div className="space-y-4">
+              {paidInvoices.map((invoiceResponse) => {
+                const invoice = invoiceResponse.invoice;
+
+                return (
+                  <div key={invoice.id} className="border border-gray-200 rounded-lg p-4 bg-green-50">
+                    <div className="flex justify-between items-start mb-3">
+                      <div>
+                        <h4 className="font-semibold text-lg text-[var(--color-dark)]">
+                          {invoice.code}
+                        </h4>
+                        <p className="text-sm text-gray-600">
+                          Fecha: {new Date(invoice.issueDate).toLocaleDateString('es-ES')}
+                        </p>
+                        <p className="text-sm text-green-600 font-medium">
+                          Estado: Pagada
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-2xl font-bold text-green-600">
+                          ${invoice.total.toFixed(2)} {invoice.currency}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => onDownloadInvoice(invoiceResponse)}
+                        className="bg-blue-500 text-white py-2 px-4 rounded-lg hover:bg-blue-600 transition-colors flex items-center justify-center gap-2"
+                      >
+                        <FaDownload size={16} />
+                        Descargar PDF
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {invoices.length === 0 && (
+          <div className="text-center py-8">
+            <FaFileInvoice className="text-gray-400 mx-auto mb-4" size={48} />
+            <p className="text-gray-600">No tienes facturas registradas</p>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // Componente PaymentsSection
+  const PaymentsSection = ({
+    payments,
+    loading,
+    onDownloadInvoice
+  }: {
+    payments: PaymentResponse[];
+    loading: boolean;
+    onDownloadInvoice: (invoice: InvoiceResponse) => Promise<void>;
+  }) => {
+    if (loading) {
+      return (
+        <div className="bg-white border border-gray-200 rounded-lg p-6">
+          <div className="flex justify-center items-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--color-primary)]"></div>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="bg-white border border-gray-200 rounded-lg p-6">
+        <div className="flex items-center gap-3 mb-6">
+          <FaHistory className="text-[var(--color-primary)]" size={24} />
+          <h2 className="text-xl font-semibold text-[var(--color-dark)]">
+            Historial de Pagos
+          </h2>
+        </div>
+
+        {payments.length > 0 ? (
+          <div className="space-y-4">
+            {payments.map((paymentResponse) => {
+              const payment = paymentResponse.paymentView;
+              const invoice = paymentResponse.invoice.invoice;
+
+              return (
+                <div key={payment.id} className="border border-gray-200 rounded-lg p-4">
+                  <div className="flex justify-between items-start mb-3">
+                    <div>
+                      <h4 className="font-semibold text-lg text-[var(--color-dark)]">
+                        Pago #{payment.id}
+                      </h4>
+                      <p className="text-sm text-gray-600">
+                        Factura: {invoice.code}
+                      </p>
+                      <p className="text-sm text-gray-600">
+                        Fecha: {new Date(payment.paid_at).toLocaleDateString('es-ES')}
+                      </p>
+                      <p className="text-sm text-gray-600">
+                        Método: {payment.payment_method}
+                      </p>
+                      {payment.reference && (
+                        <p className="text-sm text-gray-600">
+                          Referencia: {payment.reference}
+                        </p>
+                      )}
+                    </div>
+                    <div className="text-right">
+                      <p className="text-2xl font-bold text-green-600">
+                        ${payment.amount.toFixed(2)}
+                      </p>
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                        <FaCheckCircle className="mr-1" size={12} />
+                        Completado
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => onDownloadInvoice(paymentResponse.invoice)}
+                      className="bg-blue-500 text-white py-2 px-4 rounded-lg hover:bg-blue-600 transition-colors flex items-center justify-center gap-2"
+                    >
+                      <FaDownload size={16} />
+                      Descargar Factura PDF
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="text-center py-8">
+            <FaHistory className="text-gray-400 mx-auto mb-4" size={48} />
+            <p className="text-gray-600">No tienes pagos registrados</p>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div className="space-y-6">
@@ -1122,12 +1583,14 @@ export default function InvoicesPage() {
         payments={payments}
         loading={invoicesLoading}
         onMakePayment={handleMakePayment}
+        onDownloadInvoice={handleDownloadInvoice}
       />
 
       {/* Payments History Section */}
       <PaymentsSection
         payments={payments}
         loading={paymentsLoading}
+        onDownloadInvoice={handleDownloadInvoice}
       />
     </div>
   );
