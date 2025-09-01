@@ -220,9 +220,9 @@ export default function AssignEmployeeModal({
       try {
         console.log('🔄 Auto-changing status to Assigned after employee assignment')
         await updateWorkOrderStatus(workOrder.id, 2) // 2 = "Assigned"
-        console.log('✅ Status automatically changed to Assigned')
+        console.log('Status automatically changed to Assigned')
       } catch (statusError) {
-        console.warn('⚠️ Assignment successful but failed to update status:', statusError)
+        console.warn('Assignment successful but failed to update status:', statusError)
         // Don't fail the whole operation if status update fails
       }
 

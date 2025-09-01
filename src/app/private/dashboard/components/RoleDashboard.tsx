@@ -19,7 +19,8 @@ import {
   FaUserCircle,
   FaCar,
   FaUser,
-  FaClipboard
+  FaClipboard,
+  FaShieldAlt
 } from "react-icons/fa"
 
 type Props = { children: React.ReactNode }
@@ -67,27 +68,32 @@ export default function RoleDashboard({ children }: Props) {
       { label: "Vehículos", href: "/private/vehicles",      Icon: FaCar },
       { label: "Visitas",   href: "/private/vehicle-visits", Icon: FaClipboard },
       { label: "Reportes",  href: "/private/reports",       Icon: FaChartBar },
-      { label: "Inventario",href: "/private/inventary",     Icon: FaBoxes },
-      { label: "Producto de Proveedor",href: "/private/supplier-product-status",     Icon: FaBoxes },
-      { label: "Ordenes a Proveedor",href: "/private/supplier-product",     Icon: FaBoxes },
+      { label: "Inventario",href: "/private/inventory",     Icon: FaBoxes },
+      { label: "Producto de Proveedor",href: "/private/supplier-product",     Icon: FaBoxes },
+      { label: "Ordenes a Proveedor",href: "/private/supplier-op-orders",     Icon: FaBoxes },
       { label: "Órdenes",   href: "/private/work-orders",   Icon: FaClipboardList },
+      { label: "Seguridad", href: "/private/security",      Icon: FaShieldAlt },
     ],
     EMPLOYEE: [
       { label: "Trabajos asignados",href: "/private/employee", Icon: FaClipboardCheck },
+      { label: "Seguridad", href: "/private/security",      Icon: FaShieldAlt },
     ],
     SPECIALIST: [
       { label: "Intervenciones",      href: "/private/work-orders", Icon: FaTools },
+      { label: "Seguridad", href: "/private/security",      Icon: FaShieldAlt },
     ],
     CUSTOMER: [
-      { label: "Inicio", href: "/private/admin",         Icon: FaTachometerAlt },
-      { label: "Mis servicios", href: "/private/supplier",         Icon: FaClipboardList },
+      { label: "Inicio", href: "/private/dashboard",         Icon: FaTachometerAlt },
+      { label: "Mis servicios", href: "/private/customers",         Icon: FaClipboardList },
       { label: "Mis facturas",  href: "/private/invoices",          Icon: FaFileInvoiceDollar },
+      { label: "Seguridad", href: "/private/security",      Icon: FaShieldAlt },
     ],
     SUPPLIER: [
       { label: "Inicio", href: "/private/supplier",         Icon: FaTachometerAlt },
       { label: "Productos",href: "/private/supplier-op-product",     Icon: FaBoxes },
-      { label: "Pedidos activos",   href: "/private/supplier-op-orden",         Icon: FaTruck },
-      { label: "Órdenes de compra", href: "/private/supplier-op-orders",  Icon: FaShoppingCart },
+      { label: "Pedidos activos",   href: "/private/supplier-op-orders",         Icon: FaTruck },
+      { label: "Órdenes de compra", href: "/private/supplier-product",  Icon: FaShoppingCart },
+      { label: "Seguridad", href: "/private/security",      Icon: FaShieldAlt },
     ],
   }
 
@@ -150,11 +156,11 @@ export default function RoleDashboard({ children }: Props) {
         <div className="h-full px-3 pb-6 overflow-y-auto">
           <ul className="space-y-1 font-medium">
             {menuItems.map((item) => (
-              <li key={item.href}>
+              <li key={`${item.label}-${item.href}`}>
                 <button
                   onClick={() => go(item.href)}
                   className={[
-                    "w-full text-left block p-2 rounded-md flex items-center gap-3",
+                    "w-full text-left p-2 rounded-md flex items-center gap-3",
                     pathname === item.href // comparación exacta para activar Dashboard
                       ? "bg-[var(--color-primary)] text-white"
                       : "text-[var(--color-dark)] hover:bg-[var(--color-light)]",

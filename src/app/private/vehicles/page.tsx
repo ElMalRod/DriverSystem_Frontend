@@ -1236,7 +1236,7 @@ export default function VehiclesPage() {
             {createdVehicle && (
               <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
                 <p className="text-green-800 text-sm">
-                  ✅ Vehículo <strong>{createdVehicle.plate}</strong> registrado exitosamente (ID: {createdVehicle.id})
+                  Vehículo <strong>{createdVehicle.plate}</strong> registrado exitosamente (ID: {createdVehicle.id})
                 </p>
                 <p className="text-green-700 text-xs mt-1">
                   Ahora puedes asignarlo a un cliente o cerrar si ya fue asignado automáticamente
