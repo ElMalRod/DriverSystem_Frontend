@@ -26,7 +26,8 @@ import {
   FaExclamationTriangle,
   FaComments,
   FaThumbsUp,
-  FaThumbsDown
+  FaThumbsDown,
+  FaStar
 } from "react-icons/fa";
 import { getSessionUser } from "@/utils/session";
 import { getUserVehicles, UserVehicleResponse } from "@/features/vehicles/api";
@@ -328,6 +329,154 @@ export default function CustomersPage() {
           icon: 'error',
           title: 'Error',
           text: 'No se pudo rechazar el servicio preventivo. Inténtalo de nuevo.',
+          timer: 3000,
+          showConfirmButton: false
+        });
+      }
+    }
+  }
+
+  async function handleFeedback(workOrder: WorkOrder) {
+    if (!currentUser?.id) return;
+
+    try {
+      if (window.Swal) {
+        // Crear el HTML para las estrellas de rating
+        const starsHtml = `
+          <div class="rating-stars mb-4">
+            <p class="text-sm text-gray-700 mb-2">Califica el servicio (1-5 estrellas):</p>
+            <div class="flex gap-1 justify-center" id="rating-stars">
+              ${[1, 2, 3, 4, 5].map(i => `
+                <button type="button" class="star-btn text-2xl text-gray-300 hover:text-yellow-400 transition-colors" data-rating="${i}">
+                  ★
+                </button>
+              `).join('')}
+            </div>
+            <p class="text-xs text-gray-500 mt-1 text-center" id="rating-text">Selecciona una calificación</p>
+          </div>
+        `;
+
+        const result = await window.Swal.fire({
+          title: `Feedback - Orden #${workOrder.code}`,
+          html: `
+            ${starsHtml}
+            <div class="mt-4">
+              <label for="feedback-comment" class="block text-sm text-gray-700 mb-2">
+                Comentario (opcional):
+              </label>
+              <textarea
+                id="feedback-comment"
+                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                rows="3"
+                placeholder="Comparte tu experiencia con este servicio..."
+                maxlength="500"
+              ></textarea>
+              <p class="text-xs text-gray-500 mt-1 text-right" id="char-count">0/500</p>
+            </div>
+          `,
+          width: "500px",
+          showCancelButton: true,
+          confirmButtonColor: '#10B981',
+          cancelButtonColor: '#6B7280',
+          confirmButtonText: 'Enviar Feedback',
+          cancelButtonText: 'Cancelar',
+          customClass: {
+            popup: 'rounded-2xl'
+          },
+          didOpen: () => {
+            // Agregar funcionalidad a las estrellas
+            let selectedRating = 0;
+            const stars = document.querySelectorAll('.star-btn');
+            const ratingText = document.getElementById('rating-text');
+            const commentTextarea = document.getElementById('feedback-comment') as HTMLTextAreaElement;
+            const charCount = document.getElementById('char-count');
+
+            stars.forEach((star, index) => {
+              star.addEventListener('click', () => {
+                selectedRating = index + 1;
+                // Actualizar visual de estrellas
+                stars.forEach((s, i) => {
+                  if (i <= index) {
+                    s.classList.remove('text-gray-300');
+                    s.classList.add('text-yellow-400');
+                  } else {
+                    s.classList.remove('text-yellow-400');
+                    s.classList.add('text-gray-300');
+                  }
+                });
+                // Actualizar texto
+                const ratingTexts = ['', 'Muy malo', 'Malo', 'Regular', 'Bueno', 'Excelente'];
+                ratingText!.textContent = ratingTexts[selectedRating];
+              });
+            });
+
+            // Contador de caracteres
+            commentTextarea?.addEventListener('input', () => {
+              const count = commentTextarea.value.length;
+              charCount!.textContent = `${count}/500`;
+            });
+          },
+          preConfirm: () => {
+            const stars = document.querySelectorAll('.star-btn');
+            let selectedRating = 0;
+            stars.forEach((star, index) => {
+              if (star.classList.contains('text-yellow-400')) {
+                selectedRating = index + 1;
+              }
+            });
+
+            if (selectedRating === 0) {
+              window.Swal.showValidationMessage('Por favor selecciona una calificación');
+              return false;
+            }
+
+            const comment = (document.getElementById('feedback-comment') as HTMLTextAreaElement)?.value || '';
+
+            return {
+              rating: selectedRating,
+              comment: comment.trim()
+            };
+          }
+        });
+
+        if (result.isConfirmed && result.value) {
+          const { rating, comment } = result.value;
+
+          // Enviar feedback a la API
+          const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/service/feedback/register`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              work_order_id: workOrder.id,
+              customer_id: currentUser.id,
+              rating: rating,
+              comment: comment
+            })
+          });
+
+          if (response.ok) {
+            window.Swal.fire({
+              icon: 'success',
+              title: '¡Gracias por tu feedback!',
+              text: 'Tu opinión nos ayuda a mejorar nuestros servicios.',
+              timer: 3000,
+              showConfirmButton: false
+            });
+          } else {
+            throw new Error('Error al enviar feedback');
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error sending feedback:', error);
+
+      if (window.Swal) {
+        window.Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: 'No se pudo enviar el feedback. Inténtalo de nuevo.',
           timer: 3000,
           showConfirmButton: false
         });
@@ -694,36 +843,56 @@ export default function CustomersPage() {
 
                       {/* Work Logs Button */}
                       <div className="mt-4 border-t pt-4">
-                        <button
-                          onClick={async () => {
-                            try {
-                              console.log('Cargando registros de trabajo...');
-                              const logs = await getWorkLogsByOrder(workOrder.id);
-                              console.log('Logs obtenidos:', logs);
+                        <div className="flex gap-3">
+                          <button
+                            onClick={() => handleFeedback(workOrder)}
+                            className="bg-yellow-600 hover:bg-yellow-700 text-white px-3 py-2 rounded-md font-medium transition-colors duration-200 flex items-center gap-2 text-sm"
+                            title="Enviar feedback del servicio"
+                          >
+                            <FaStar size={14} />
+                            Feedback
+                          </button>
+                          <button
+                            onClick={async () => {
+                              try {
+                                console.log('Cargando registros de trabajo...');
+                                const logs = await getWorkLogsByOrder(workOrder.id);
+                                console.log('Logs obtenidos:', logs);
 
-                              if (window.Swal) {
-                                const logsHtml = logs.length > 0
-                                  ? logs.map(log => {
-                                      console.log('Procesando log:', log.note);
+                                if (window.Swal) {
+                                  const logsHtml = logs.length > 0
+                                    ? logs.map(log => {
+                                        console.log('Procesando log:', log.note);
 
-                                      // Limpiar el texto de \n y formatear
-                                      const cleanNote = log.note.replace(/\\n/g, ' ').replace(/\n/g, ' ').trim();
-                                      console.log('Nota limpiada:', cleanNote);
+                                        // Limpiar el texto de \n y formatear
+                                        const cleanNote = log.note.replace(/\\n/g, ' ').replace(/\n/g, ' ').trim();
+                                        console.log('Nota limpiada:', cleanNote);
 
-                                      // Arreglar fecha inválida - usar fecha de hoy si no hay fecha
-                                      let formattedDate = 'Fecha no disponible';
-                                      if (log.logCreatedAt) {
-                                        const date = new Date(log.logCreatedAt);
-                                        if (!isNaN(date.getTime())) {
-                                          formattedDate = date.toLocaleDateString('es-ES', {
-                                            year: 'numeric',
-                                            month: 'short',
-                                            day: 'numeric',
-                                            hour: '2-digit',
-                                            minute: '2-digit'
-                                          });
+                                        // Arreglar fecha inválida - usar fecha de hoy si no hay fecha
+                                        let formattedDate = 'Fecha no disponible';
+                                        if (log.logCreatedAt) {
+                                          const date = new Date(log.logCreatedAt);
+                                          if (!isNaN(date.getTime())) {
+                                            formattedDate = date.toLocaleDateString('es-ES', {
+                                              year: 'numeric',
+                                              month: 'short',
+                                              day: 'numeric',
+                                              hour: '2-digit',
+                                              minute: '2-digit'
+                                            });
+                                          } else {
+                                            // Si es inválida, usar fecha actual
+                                            const now = new Date();
+                                            formattedDate = now.toLocaleDateString('es-ES', {
+                                              year: 'numeric',
+                                              month: 'short',
+                                              day: 'numeric',
+                                              hour: '2-digit',
+                                              minute: '2-digit'
+                                            });
+                                          }
                                         } else {
-                                          // Si es inválida, usar fecha actual
+                                          // Si no hay fecha, usar fecha actual
                                           const now = new Date();
                                           formattedDate = now.toLocaleDateString('es-ES', {
                                             year: 'numeric',
@@ -733,153 +902,143 @@ export default function CustomersPage() {
                                             minute: '2-digit'
                                           });
                                         }
-                                      } else {
-                                        // Si no hay fecha, usar fecha actual
-                                        const now = new Date();
-                                        formattedDate = now.toLocaleDateString('es-ES', {
-                                          year: 'numeric',
-                                          month: 'short',
-                                          day: 'numeric',
-                                          hour: '2-digit',
-                                          minute: '2-digit'
-                                        });
-                                      }
 
-                                      // Determinar el tipo de actividad y icono
-                                      let activityType = 'actividad';
-                                      let iconClass = 'fas fa-info-circle text-blue-500';
-                                      let bgColor = 'bg-blue-50 border-blue-200';
+                                        // Determinar el tipo de actividad y icono
+                                        let activityType = 'actividad';
+                                        let iconClass = 'fas fa-info-circle text-blue-500';
+                                        let bgColor = 'bg-blue-50 border-blue-200';
 
-                                      if (cleanNote.includes('COTIZACIÓN GENERADA')) {
-                                        activityType = 'cotización';
-                                        iconClass = 'fas fa-calculator text-green-500';
-                                        bgColor = 'bg-green-50 border-green-200';
-                                      } else if (cleanNote.includes('Trabajo iniciado')) {
-                                        activityType = 'inicio de trabajo';
-                                        iconClass = 'fas fa-play-circle text-blue-500';
-                                        bgColor = 'bg-blue-50 border-blue-200';
-                                      } else if (cleanNote.includes('CAMBIO DE TIPO')) {
-                                        activityType = 'cambio de mantenimiento';
-                                        iconClass = 'fas fa-exchange-alt text-orange-500';
-                                        bgColor = 'bg-orange-50 border-orange-200';
-                                      } else if (cleanNote.includes('Servicio preventivo')) {
-                                        activityType = 'servicio preventivo';
-                                        iconClass = 'fas fa-shield-alt text-purple-500';
-                                        bgColor = 'bg-purple-50 border-purple-200';
-                                      } else if (cleanNote.includes('Estado cambiado')) {
-                                        activityType = 'actualización de estado';
-                                        iconClass = 'fas fa-sync-alt text-gray-500';
-                                        bgColor = 'bg-gray-50 border-gray-200';
-                                      }
-
-                                      // Simplificar el mensaje para el cliente
-                                      let displayMessage = cleanNote;
-
-                                      // Para cotizaciones, mostrar solo productos y precios
-                                      if (cleanNote.includes('COTIZACIÓN GENERADA')) {
-                                        const lines = cleanNote.split('Producto/Servicio:');
-                                        if (lines.length > 1) {
-                                          const productInfo = lines[1].split('La cotización')[0].trim();
-                                          displayMessage = `Cotización generada: ${productInfo}`;
+                                        if (cleanNote.includes('COTIZACIÓN GENERADA')) {
+                                          activityType = 'cotización';
+                                          iconClass = 'fas fa-calculator text-green-500';
+                                          bgColor = 'bg-green-50 border-green-200';
+                                        } else if (cleanNote.includes('Trabajo iniciado')) {
+                                          activityType = 'inicio de trabajo';
+                                          iconClass = 'fas fa-play-circle text-blue-500';
+                                          bgColor = 'bg-blue-50 border-blue-200';
+                                        } else if (cleanNote.includes('CAMBIO DE TIPO')) {
+                                          activityType = 'cambio de mantenimiento';
+                                          iconClass = 'fas fa-exchange-alt text-orange-500';
+                                          bgColor = 'bg-orange-50 border-orange-200';
+                                        } else if (cleanNote.includes('Servicio preventivo')) {
+                                          activityType = 'servicio preventivo';
+                                          iconClass = 'fas fa-shield-alt text-purple-500';
+                                          bgColor = 'bg-purple-50 border-purple-200';
+                                        } else if (cleanNote.includes('Estado cambiado')) {
+                                          activityType = 'actualización de estado';
+                                          iconClass = 'fas fa-sync-alt text-gray-500';
+                                          bgColor = 'bg-gray-50 border-gray-200';
                                         }
-                                      }
 
-                                      // Para cambios de mantenimiento, simplificar
-                                      if (cleanNote.includes('CAMBIO DE TIPO')) {
-                                        displayMessage = 'Solicitud de cambio a mantenimiento preventivo';
-                                      }
+                                        // Simplificar el mensaje para el cliente
+                                        let displayMessage = cleanNote;
 
-                                      const htmlResult = `
-                                        <div class="${bgColor} p-4 rounded-lg mb-3 border-l-4 ${bgColor.replace('bg-', 'border-')}">
-                                          <div class="flex items-start gap-3">
-                                            <div class="flex-shrink-0 mt-1">
-                                              <i class="${iconClass}"></i>
-                                            </div>
-                                            <div class="flex-1 min-w-0">
-                                              <div class="flex items-center justify-between mb-2">
-                                                <span class="text-sm font-medium text-gray-900 capitalize">${activityType}</span>
-                                                <span class="text-xs text-gray-500">${formattedDate}</span>
+                                        // Para cotizaciones, mostrar solo productos y precios
+                                        if (cleanNote.includes('COTIZACIÓN GENERADA')) {
+                                          const lines = cleanNote.split('Producto/Servicio:');
+                                          if (lines.length > 1) {
+                                            const productInfo = lines[1].split('La cotización')[0].trim();
+                                            displayMessage = `Cotización generada: ${productInfo}`;
+                                          }
+                                        }
+
+                                        // Para cambios de mantenimiento, simplificar
+                                        if (cleanNote.includes('CAMBIO DE TIPO')) {
+                                          displayMessage = 'Solicitud de cambio a mantenimiento preventivo';
+                                        }
+
+                                        const htmlResult = `
+                                          <div class="${bgColor} p-4 rounded-lg mb-3 border-l-4 ${bgColor.replace('bg-', 'border-')}">
+                                            <div class="flex items-start gap-3">
+                                              <div class="flex-shrink-0 mt-1">
+                                                <i class="${iconClass}"></i>
                                               </div>
-                                              <p class="text-sm text-gray-700 leading-relaxed">${displayMessage}</p>
-                                              ${log.autorId ? `<div class="text-xs text-gray-600 mt-2 flex items-center gap-1">
-                                                <i class="fas fa-user text-gray-400"></i>
-                                                Registrado por el taller
-                                              </div>` : ''}
+                                              <div class="flex-1 min-w-0">
+                                                <div class="flex items-center justify-between mb-2">
+                                                  <span class="text-sm font-medium text-gray-900 capitalize">${activityType}</span>
+                                                  <span class="text-xs text-gray-500">${formattedDate}</span>
+                                                </div>
+                                                <p class="text-sm text-gray-700 leading-relaxed">${displayMessage}</p>
+                                                ${log.autorId ? `<div class="text-xs text-gray-600 mt-2 flex items-center gap-1">
+                                                  <i class="fas fa-user text-gray-400"></i>
+                                                  Registrado por el taller
+                                                </div>` : ''}
+                                              </div>
                                             </div>
                                           </div>
+                                        `;
+
+                                        console.log('HTML generado:', htmlResult);
+                                        return htmlResult;
+                                      }).join('')
+                                    : `
+                                      <div class="text-center py-8">
+                                        <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                          <i class="fas fa-clipboard-list text-gray-400 text-2xl"></i>
                                         </div>
-                                      `;
-
-                                      console.log('HTML generado:', htmlResult);
-                                      return htmlResult;
-                                    }).join('')
-                                  : `
-                                    <div class="text-center py-8">
-                                      <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                                        <i class="fas fa-clipboard-list text-gray-400 text-2xl"></i>
+                                        <p class="text-gray-500 font-medium">No hay registros de trabajo</p>
+                                        <p class="text-sm text-gray-400 mt-1">Los registros aparecerán aquí cuando se realice trabajo en tu vehículo</p>
                                       </div>
-                                      <p class="text-gray-500 font-medium">No hay registros de trabajo</p>
-                                      <p class="text-sm text-gray-400 mt-1">Los registros aparecerán aquí cuando se realice trabajo en tu vehículo</p>
-                                    </div>
-                                  `;
+                                    `;
 
-                                console.log('HTML final:', logsHtml);
+                                  console.log('HTML final:', logsHtml);
 
-                                window.Swal.fire({
-                                  title: `<i class="fas fa-history text-blue-600 mr-2"></i>Historial de Trabajo - Orden #${workOrder.code}`,
-                                  html: `
-                                    <div class="max-h-96 overflow-y-auto px-2">
-                                      ${logsHtml}
-                                    </div>
-                                    <div class="mt-4 pt-4 border-t border-gray-200">
-                                      <div class="flex items-center justify-center gap-2 text-sm text-gray-600">
-                                        <i class="fas fa-info-circle text-blue-500"></i>
-                                        <span>Estos son los registros del progreso de tu servicio</span>
+                                  window.Swal.fire({
+                                    title: `<i class="fas fa-history text-blue-600 mr-2"></i>Historial de Trabajo - Orden #${workOrder.code}`,
+                                    html: `
+                                      <div class="max-h-96 overflow-y-auto px-2">
+                                        ${logsHtml}
                                       </div>
-                                    </div>
-                                  `,
-                                  width: "700px",
-                                  confirmButtonColor: "#3B82F6",
-                                  confirmButtonText: '<i class="fas fa-check mr-2"></i>Entendido',
-                                  customClass: {
-                                    popup: 'rounded-2xl',
-                                    confirmButton: 'rounded-lg font-medium px-6 py-2.5'
-                                  },
-                                  showClass: {
-                                    popup: 'animate__animated animate__fadeInDown'
-                                  },
-                                  hideClass: {
-                                    popup: 'animate__animated animate__fadeOutUp'
-                                  }
-                                });
+                                      <div class="mt-4 pt-4 border-t border-gray-200">
+                                        <div class="flex items-center justify-center gap-2 text-sm text-gray-600">
+                                          <i class="fas fa-info-circle text-blue-500"></i>
+                                          <span>Estos son los registros del progreso de tu servicio</span>
+                                        </div>
+                                      </div>
+                                    `,
+                                    width: "700px",
+                                    confirmButtonColor: "#3B82F6",
+                                    confirmButtonText: '<i class="fas fa-check mr-2"></i>Entendido',
+                                    customClass: {
+                                      popup: 'rounded-2xl',
+                                      confirmButton: 'rounded-lg font-medium px-6 py-2.5'
+                                    },
+                                    showClass: {
+                                      popup: 'animate__animated animate__fadeInDown'
+                                    },
+                                    hideClass: {
+                                      popup: 'animate__animated animate__fadeOutUp'
+                                    }
+                                  });
+                                }
+                              } catch (error) {
+                                console.error('Error loading work logs:', error);
+                                if (window.Swal) {
+                                  window.Swal.fire({
+                                    icon: 'error',
+                                    title: '<i class="fas fa-exclamation-triangle mr-2"></i>Error al cargar registros',
+                                    html: `
+                                      <div class="text-center py-4">
+                                        <p class="text-gray-700 mb-2">No se pudieron cargar los registros de trabajo</p>
+                                        <p class="text-sm text-gray-500">Por favor intenta nuevamente</p>
+                                      </div>
+                                    `,
+                                    confirmButtonColor: '#EF4444',
+                                    confirmButtonText: '<i class="fas fa-redo mr-2"></i>Intentar de nuevo',
+                                    customClass: {
+                                      popup: 'rounded-2xl'
+                                    }
+                                  });
+                                }
                               }
-                            } catch (error) {
-                              console.error('Error loading work logs:', error);
-                              if (window.Swal) {
-                                window.Swal.fire({
-                                  icon: 'error',
-                                  title: '<i class="fas fa-exclamation-triangle mr-2"></i>Error al cargar registros',
-                                  html: `
-                                    <div class="text-center py-4">
-                                      <p class="text-gray-700 mb-2">No se pudieron cargar los registros de trabajo</p>
-                                      <p class="text-sm text-gray-500">Por favor intenta nuevamente</p>
-                                    </div>
-                                  `,
-                                  confirmButtonColor: '#EF4444',
-                                  confirmButtonText: '<i class="fas fa-redo mr-2"></i>Intentar de nuevo',
-                                  customClass: {
-                                    popup: 'rounded-2xl'
-                                  }
-                                });
-                              }
-                            }
-                          }}
-                          className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-md font-medium transition-colors duration-200 flex items-center gap-2 text-sm"
-                          title="Ver registros de trabajo"
-                        >
-                          <FaHistory size={14} />
-                          Ver Registros
-                        </button>
+                            }}
+                            className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-md font-medium transition-colors duration-200 flex items-center gap-2 text-sm"
+                            title="Ver registros de trabajo"
+                          >
+                            <FaHistory size={14} />
+                            Ver Registros
+                          </button>
+                        </div>
                       </div>
                     </div>
 

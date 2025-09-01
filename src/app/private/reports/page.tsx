@@ -78,24 +78,82 @@ interface VehicleHistoryReport {
 }
 
 interface SparePartsReport {
-  productId: number;
-  productName: string;
-  quantity: number;
-  totalUsed: number;
-  unit: string;
-  category: string;
+  total_quantity: number;
+  product_id: number;
+  product_name: string;
+  approved_at: string;
+}
+
+interface VehiclePartsReport {
+  product_id: number;
+  product_name: string;
+  total_quantity: number;
+  model: string;
+  make: string;
 }
 
 interface WorkByMechanicReport {
-  employeeId: number;
-  employeeName: string;
-  workOrdersCount: number;
-  totalHours: number;
-  maintenanceType: string;
-  period: string;
+  code: string;
+  description: string;
+  maintenance_type: string;
+  status: string;
+  employee: string;
+  assigned_at: string;
+  fecha: string;
 }
 
-type ReportType = 'work-orders' | 'vehicle-history' | 'spare-parts' | 'mechanic-work' | 'vehicle-parts';
+interface FinancialSupplierReport {
+  paid_amount: number;
+  total_amount: number | null;
+  supplier_doc: string;
+  status: string;
+  purchase_order_code: string;
+  due_date: string | null;
+  issue_date: string;
+  goods_receipt_id: number;
+  invoice_code: string;
+  supplier_name: string;
+  pending_amount: number | null;
+}
+
+interface FinancialManagementReport {
+  period_type: string;
+  total_income: number;
+  net_balance: number;
+  total_expenses: number;
+}
+
+interface ServiceRatingReport {
+  assigned_technicians: string;
+  completion_date: string | null;
+  created_by: string;
+  customer_comment: string;
+  customer_name: string;
+  doc_number: string;
+  email: string;
+  feedback_date: string;
+  phone: string;
+  plate: string;
+  rating: number;
+  service_date: string;
+  service_type: string;
+  vehicle_make: string;
+  vehicle_model: string;
+  vin: string;
+  work_order_code: string;
+}
+
+interface ClientServiceHistoryReport {
+  service_description: string;
+  service_type: string;
+  service_date: string;
+  service_status: string;
+  total_hours: number;
+  vehicle_details: string;
+  work_order_code: string;
+}
+
+type ReportType = 'work-orders' | 'vehicle-history' | 'spare-parts' | 'mechanic-work' | 'vehicle-parts' | 'financial-supplier' | 'financial-management' | 'service-rating' | 'client-service-history';
 
 export default function ReportsPage() {
   const [currentUser, setCurrentUser] = useState<any>(null);
@@ -105,13 +163,24 @@ export default function ReportsPage() {
     startDate: '',
     endDate: ''
   });
-  const [reportData, setReportData] = useState<(WorkOrderReport | VehicleHistoryReport | SparePartsReport | WorkByMechanicReport)[]>([]);
+  const [reportData, setReportData] = useState<(WorkOrderReport | VehicleHistoryReport | SparePartsReport | WorkByMechanicReport | VehiclePartsReport | FinancialSupplierReport | FinancialManagementReport | ServiceRatingReport | ClientServiceHistoryReport)[]>([]);
   const [mechanicUsers, setMechanicUsers] = useState<any[]>([]);
+  const [clients, setClients] = useState<any[]>([]);
+  const [feedbackModal, setFeedbackModal] = useState({
+    isOpen: false,
+    workOrderCode: '',
+    workOrderId: 0
+  });
+  const [feedbackData, setFeedbackData] = useState({
+    rating: 5,
+    comment: ''
+  });
   const [filters, setFilters] = useState({
     vehiclePlate: '',
     mechanicId: '',
     maintenanceType: '',
-    model: ''
+    model: '',
+    clientId: ''
   });
 
   useEffect(() => {
@@ -136,6 +205,13 @@ export default function ReportsPage() {
     }
   }, [selectedReport]);
 
+  // Load clients when client-service-history report is selected
+  useEffect(() => {
+    if (selectedReport === 'client-service-history') {
+      loadClients();
+    }
+  }, [selectedReport]);
+
   const loadMechanicUsers = async () => {
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/user/`);
@@ -154,6 +230,80 @@ export default function ReportsPage() {
       setMechanicUsers([]);
     }
   };
+
+  const loadClients = async () => {
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/user/`);
+      if (!response.ok) throw new Error('Failed to fetch users');
+
+      const users = await response.json();
+
+      // Filtrar solo clientes
+      const clientUsers = users.filter((user: any) =>
+        user.roleName === 'Cliente'
+      );
+
+      setClients(clientUsers);
+    } catch (error) {
+      console.error('Error loading clients:', error);
+      setClients([]);
+    }
+  };
+
+  // Función para abrir el modal de feedback
+  const openFeedbackModal = (workOrderCode: string) => {
+    // Extraer el ID numérico del código de orden de trabajo
+    const workOrderId = parseInt(workOrderCode.replace('WO-', ''));
+    setFeedbackModal({
+      isOpen: true,
+      workOrderCode,
+      workOrderId
+    });
+    setFeedbackData({
+      rating: 5,
+      comment: ''
+    });
+  };
+
+  // Función para enviar feedback
+  const submitFeedback = async () => {
+    try {
+      const customerId = currentUser?.id;
+      if (!customerId) {
+        alert('No se pudo identificar al usuario actual');
+        return;
+      }
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/service/feedback/register`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          work_order_id: feedbackModal.workOrderId,
+          customer_id: customerId,
+          rating: feedbackData.rating,
+          comment: feedbackData.comment
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Error al enviar el feedback');
+      }
+
+      alert('¡Feedback enviado exitosamente!');
+      setFeedbackModal({ isOpen: false, workOrderCode: '', workOrderId: 0 });
+      setFeedbackData({ rating: 5, comment: '' });
+    } catch (error) {
+      console.error('Error submitting feedback:', error);
+      alert('Error al enviar el feedback. Por favor, inténtelo de nuevo.');
+    }
+  };
+
+  // Función global para abrir el modal desde el botón HTML
+  if (typeof window !== 'undefined') {
+    (window as any).openFeedbackModal = openFeedbackModal;
+  }
 
   const reportOptions = [
     {
@@ -190,6 +340,34 @@ export default function ReportsPage() {
       description: 'Repuestos más usados por modelo de vehículo',
       icon: FaChartBar,
       color: 'bg-red-500'
+    },
+    {
+      id: 'financial-supplier' as ReportType,
+      title: 'Egresos a Proveedores',
+      description: 'Reportes de pagos realizados a proveedores',
+      icon: FaTools,
+      color: 'bg-yellow-500'
+    },
+    {
+      id: 'financial-management' as ReportType,
+      title: 'Ingresos y Egresos',
+      description: 'Reportes financieros de ingresos y egresos',
+      icon: FaChartBar,
+      color: 'bg-green-600'
+    },
+    {
+      id: 'service-rating' as ReportType,
+      title: 'Calificación de Servicios',
+      description: 'Calificaciones y comentarios de servicios realizados',
+      icon: FaUser,
+      color: 'bg-purple-600'
+    },
+    {
+      id: 'client-service-history' as ReportType,
+      title: 'Historial por Cliente',
+      description: 'Historial completo de servicios por cliente específico',
+      icon: FaClipboardList,
+      color: 'bg-indigo-500'
     }
   ];
 
@@ -225,16 +403,65 @@ export default function ReportsPage() {
         case 'vehicle-parts':
           data = await generateVehiclePartsReport();
           break;
+        case 'financial-supplier':
+          data = await generateFinancialSupplierReport();
+          break;
+        case 'financial-management':
+          data = await generateFinancialManagementReport();
+          break;
+        case 'service-rating':
+          data = await generateServiceRatingReport();
+          break;
+        case 'client-service-history':
+          data = await generateClientServiceHistoryReport();
+          break;
       }
 
       setReportData(data);
     } catch (error) {
       console.error('Error generating report:', error);
+
+      // Determinar el tipo de error para mostrar mensaje más específico
+      let errorTitle = 'Error al Generar Reporte';
+      let errorMessage = 'No se pudo generar el reporte. Por favor intenta nuevamente.';
+      let errorIcon: 'error' | 'warning' | 'info' = 'error';
+
+      if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
+        errorTitle = 'Problema de Conexión';
+        errorMessage = 'No se puede conectar con el servidor. Verifica que el servicio backend esté ejecutándose.';
+        errorIcon = 'warning';
+      } else if (error instanceof Error) {
+        if (error.message.includes('Failed to fetch')) {
+          errorTitle = 'Error de Conexión';
+          errorMessage = 'No se pudo conectar con el servidor. Revisa tu conexión a internet.';
+          errorIcon = 'warning';
+        } else if (error.message.includes('404')) {
+          errorTitle = 'Servicio No Disponible';
+          errorMessage = 'El servicio de reportes no está disponible en este momento.';
+          errorIcon = 'info';
+        } else if (error.message.includes('500')) {
+          errorTitle = 'Error del Servidor';
+          errorMessage = 'Hubo un error interno del servidor. Inténtalo más tarde.';
+          errorIcon = 'error';
+        }
+      }
+
       if (window.Swal) {
         window.Swal.fire({
-          icon: 'error',
-          title: 'Error',
-          text: 'No se pudo generar el reporte'
+          icon: errorIcon,
+          title: errorTitle,
+          html: `
+            <div class="text-center">
+              <p class="mb-3">${errorMessage}</p>
+              <div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-600">
+              </div>
+            </div>
+          `,
+          confirmButtonColor: '#3B82F6',
+          confirmButtonText: 'Entendido',
+          customClass: {
+            popup: 'rounded-2xl'
+          }
         });
       }
     } finally {
@@ -243,19 +470,94 @@ export default function ReportsPage() {
   };
 
   const generateWorkOrdersReport = async (): Promise<WorkOrderReport[]> => {
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/reporte/work/order`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        dateStart: dateRange.startDate,
-        dateEnd: dateRange.endDate
-      }),
-    });
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/reporte/work/order`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          dateStart: dateRange.startDate,
+          dateEnd: dateRange.endDate
+        }),
+      });
 
-    if (!response.ok) throw new Error('Failed to fetch work orders report');
-    return await response.json();
+      if (!response.ok) {
+        if (response.status === 404) {
+          throw new Error('Servicio de reportes no encontrado (404)');
+        } else if (response.status >= 500) {
+          throw new Error('Error interno del servidor (500)');
+        } else {
+          throw new Error(`Error del servidor: ${response.status}`);
+        }
+      }
+
+      return await response.json();
+    } catch (error) {
+      if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
+        throw new Error('No se puede conectar con el servidor backend');
+      }
+      throw error;
+    }
+  };
+
+  const generateSparePartsReport = async (): Promise<SparePartsReport[]> => {
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/reporte/spare/parts`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          dateStart: dateRange.startDate,
+          dateEnd: dateRange.endDate
+        }),
+      });
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          throw new Error('Servicio de reportes de repuestos no encontrado');
+        } else if (response.status >= 500) {
+          throw new Error('Error interno del servidor');
+        } else {
+          throw new Error(`Error del servidor: ${response.status}`);
+        }
+      }
+
+      return await response.json();
+    } catch (error) {
+      if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
+        throw new Error('No se puede conectar con el servidor backend');
+      }
+      throw error;
+    }
+  };
+
+  const generateVehiclePartsReport = async (): Promise<VehiclePartsReport[]> => {
+    if (!filters.model) {
+      throw new Error('Se requiere el modelo del vehículo');
+    }
+
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/reporte/vehicle/parts/${filters.model}`);
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          throw new Error('Modelo de vehículo no encontrado o servicio no disponible');
+        } else if (response.status >= 500) {
+          throw new Error('Error interno del servidor');
+        } else {
+          throw new Error(`Error del servidor: ${response.status}`);
+        }
+      }
+
+      return await response.json();
+    } catch (error) {
+      if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
+        throw new Error('No se puede conectar con el servidor backend');
+      }
+      throw error;
+    }
   };
 
   const generateVehicleHistoryReport = async (): Promise<VehicleHistoryReport[]> => {
@@ -263,9 +565,26 @@ export default function ReportsPage() {
       throw new Error('Se requiere la placa del vehículo');
     }
 
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/reporte/vehicle/${filters.vehiclePlate}`);
-    if (!response.ok) throw new Error('Failed to fetch vehicle history');
-    return await response.json();
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/reporte/vehicle/${filters.vehiclePlate}`);
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          throw new Error('Vehículo no encontrado o servicio no disponible');
+        } else if (response.status >= 500) {
+          throw new Error('Error interno del servidor');
+        } else {
+          throw new Error(`Error del servidor: ${response.status}`);
+        }
+      }
+
+      return await response.json();
+    } catch (error) {
+      if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
+        throw new Error('No se puede conectar con el servidor backend');
+      }
+      throw error;
+    }
   };
 
   const generateMechanicWorkReport = async (): Promise<WorkByMechanicReport[]> => {
@@ -273,47 +592,157 @@ export default function ReportsPage() {
       throw new Error('Se requiere seleccionar un empleado');
     }
 
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/reporte/work/order/date-type-user`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        dateStart: dateRange.startDate,
-        dateEnd: dateRange.endDate,
-        userId: parseInt(filters.mechanicId),
-        typeMantenimiento: filters.maintenanceType ? parseInt(filters.maintenanceType) : null
-      }),
-    });
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/reporte/work/order/date-type-user`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          dateStart: dateRange.startDate,
+          dateEnd: dateRange.endDate,
+          userId: parseInt(filters.mechanicId),
+          ...(filters.maintenanceType && { typeMantenimiento: parseInt(filters.maintenanceType) })
+        }),
+      });
 
-    if (!response.ok) throw new Error('Failed to fetch mechanic work report');
-    return await response.json();
-  };
+      if (!response.ok) {
+        if (response.status === 404) {
+          throw new Error('Servicio de reportes de mecánico no encontrado');
+        } else if (response.status >= 500) {
+          throw new Error('Error interno del servidor');
+        } else {
+          throw new Error(`Error del servidor: ${response.status}`);
+        }
+      }
 
-  const generateSparePartsReport = async (): Promise<SparePartsReport[]> => {
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/reporte/spare/parts`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        dateStart: dateRange.startDate,
-        dateEnd: dateRange.endDate
-      }),
-    });
-
-    if (!response.ok) throw new Error('Failed to fetch spare parts report');
-    return await response.json();
-  };
-
-  const generateVehiclePartsReport = async (): Promise<SparePartsReport[]> => {
-    if (!filters.model) {
-      throw new Error('Se requiere el modelo del vehículo');
+      return await response.json();
+    } catch (error) {
+      if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
+        throw new Error('No se puede conectar con el servidor backend');
+      }
+      throw error;
     }
+  };
 
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/reporte/vehicle/parts/${filters.model}`);
-    if (!response.ok) throw new Error('Failed to fetch vehicle parts report');
-    return await response.json();
+  const generateFinancialSupplierReport = async (): Promise<FinancialSupplierReport[]> => {
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/reporte/financial/proveedor`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          dateStart: dateRange.startDate,
+          dateEnd: dateRange.endDate
+        }),
+      });
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          throw new Error('Servicio de reportes financieros de proveedores no encontrado');
+        } else if (response.status >= 500) {
+          throw new Error('Error interno del servidor');
+        } else {
+          throw new Error(`Error del servidor: ${response.status}`);
+        }
+      }
+
+      return await response.json();
+    } catch (error) {
+      if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
+        throw new Error('No se puede conectar con el servidor backend');
+      }
+      throw error;
+    }
+  };
+
+  const generateFinancialManagementReport = async (): Promise<FinancialManagementReport[]> => {
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/reporte/financial/management`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          dateStart: dateRange.startDate,
+          dateEnd: dateRange.endDate
+        }),
+      });
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          throw new Error('Servicio de reportes financieros de gestión no encontrado');
+        } else if (response.status >= 500) {
+          throw new Error('Error interno del servidor');
+        } else {
+          throw new Error(`Error del servidor: ${response.status}`);
+        }
+      }
+
+      return await response.json();
+    } catch (error) {
+      if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
+        throw new Error('No se puede conectar con el servidor backend');
+      }
+      throw error;
+    }
+  };
+
+  const generateServiceRatingReport = async (): Promise<ServiceRatingReport[]> => {
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/reporte/service/ranging`);
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          throw new Error('Servicio de reportes de calificación no encontrado');
+        } else if (response.status >= 500) {
+          throw new Error('Error interno del servidor');
+        } else {
+          throw new Error(`Error del servidor: ${response.status}`);
+        }
+      }
+
+      return await response.json();
+    } catch (error) {
+      if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
+        throw new Error('No se puede conectar con el servidor backend');
+      }
+      throw error;
+    }
+  };
+
+  const generateClientServiceHistoryReport = async (): Promise<ClientServiceHistoryReport[]> => {
+    try {
+      let url = `${process.env.NEXT_PUBLIC_API_URL}/api/reporte/service/cliente`;
+
+      // Si se selecciona un cliente específico, agregar el ID a la URL
+      if (filters.clientId) {
+        url += `/${filters.clientId}`;
+      } else {
+        // Si no se selecciona cliente, usar endpoint general
+        url = `${process.env.NEXT_PUBLIC_API_URL}/api/reporte/service/cliente/all`;
+      }
+
+      const response = await fetch(url);
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          throw new Error('Cliente no encontrado o servicio no disponible');
+        } else if (response.status >= 500) {
+          throw new Error('Error interno del servidor');
+        } else {
+          throw new Error(`Error del servidor: ${response.status}`);
+        }
+      }
+
+      return await response.json();
+    } catch (error) {
+      if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
+        throw new Error('No se puede conectar con el servidor backend');
+      }
+      throw error;
+    }
   };
 
   const exportToPDF = () => {
@@ -853,6 +1282,26 @@ export default function ReportsPage() {
                 />
               </div>
             )}
+
+            {selectedReport === 'client-service-history' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Cliente
+                </label>
+                <select
+                  value={filters.clientId}
+                  onChange={(e) => setFilters(prev => ({ ...prev, clientId: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Todos los clientes</option>
+                  {clients.map((client) => (
+                    <option key={client.id} value={client.id}>
+                      {client.name || client.email || `Cliente ${client.id}`}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
 
           {/* Generate Report Button */}
@@ -946,6 +1395,63 @@ export default function ReportsPage() {
             )}
           </div>
         )}
+
+        {/* Modal de Feedback */}
+        {feedbackModal.isOpen && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+              <h3 className="text-lg font-semibold mb-4">Enviar Feedback</h3>
+              <p className="text-sm text-gray-600 mb-4">
+                Orden de Trabajo: {feedbackModal.workOrderCode}
+              </p>
+
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Calificación
+                </label>
+                <select
+                  value={feedbackData.rating}
+                  onChange={(e) => setFeedbackData(prev => ({ ...prev, rating: parseInt(e.target.value) }))}
+                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value={5}>⭐⭐⭐⭐⭐ Excelente</option>
+                  <option value={4}>⭐⭐⭐⭐ Bueno</option>
+                  <option value={3}>⭐⭐⭐ Regular</option>
+                  <option value={2}>⭐⭐ Malo</option>
+                  <option value={1}>⭐ Muy Malo</option>
+                </select>
+              </div>
+
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Comentario
+                </label>
+                <textarea
+                  value={feedbackData.comment}
+                  onChange={(e) => setFeedbackData(prev => ({ ...prev, comment: e.target.value }))}
+                  placeholder="Escribe tu comentario aquí..."
+                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                  rows={4}
+                />
+              </div>
+
+              <div className="flex justify-end space-x-3">
+                <button
+                  onClick={() => setFeedbackModal({ isOpen: false, workOrderCode: '', workOrderId: 0 })}
+                  className="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={submitFeedback}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                >
+                  Enviar Feedback
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -959,11 +1465,19 @@ function getTableHeaders(reportType: ReportType): string[] {
     case 'vehicle-history':
       return ['Código', 'Tipo Log', 'Tipo Mantenimiento', 'Nota', 'Empleado', 'Fecha'];
     case 'mechanic-work':
-      return ['Mecánico', 'Órdenes', 'Horas Totales', 'Tipo Mantenimiento', 'Período'];
+      return ['Código', 'Descripción', 'Tipo Mantenimiento', 'Estado', 'Empleado', 'Fecha Asignación', 'Fecha'];
     case 'spare-parts':
-      return ['Producto', 'Categoría', 'Cantidad Usada', 'Unidad', 'Total'];
+      return ['ID Producto', 'Producto', 'Cantidad Total', 'Fecha Aprobación'];
     case 'vehicle-parts':
-      return ['Producto', 'Modelo', 'Cantidad Usada', 'Unidad', 'Frecuencia'];
+      return ['ID Producto', 'Producto', 'Cantidad Total', 'Modelo', 'Marca'];
+    case 'financial-supplier':
+      return ['Código Factura', 'Proveedor', 'Documento', 'Monto Pagado', 'Estado', 'Fecha Emisión', 'Orden Compra'];
+    case 'financial-management':
+      return ['Tipo', 'Total Ingresos', 'Total Egresos', 'Balance Neto'];
+    case 'service-rating':
+      return ['Código Orden', 'Cliente', 'Vehículo', 'Placa', 'Calificación', 'Comentario', 'Fecha Servicio', 'Tipo Servicio', 'Técnico', 'Creado Por'];
+    case 'client-service-history':
+      return ['Código Orden', 'Descripción Servicio', 'Tipo Servicio', 'Fecha Servicio', 'Estado', 'Horas Totales', 'Detalles Vehículo', 'Acciones'];
     default:
       return [];
   }
@@ -998,27 +1512,70 @@ function getTableRow(reportType: ReportType, item: any): string[] {
       ];
     case 'mechanic-work':
       return [
-        item.employeeName || '',
-        item.workOrdersCount?.toString() || '0',
-        item.totalHours?.toString() || '0',
-        item.maintenanceType || '',
-        item.period || ''
+        item.code || '',
+        item.description || '',
+        item.maintenance_type || '',
+        item.status || '',
+        item.employee || '',
+        item.assigned_at ? new Date(item.assigned_at).toLocaleDateString('es-ES') : '',
+        item.fecha ? new Date(item.fecha).toLocaleDateString('es-ES') : ''
       ];
     case 'spare-parts':
       return [
-        item.productName || '',
-        item.category || '',
-        item.quantity?.toString() || '0',
-        item.unit || '',
-        item.totalUsed?.toString() || '0'
+        item.product_id?.toString() || '',
+        item.product_name || '',
+        item.total_quantity?.toString() || '0',
+        item.approved_at ? new Date(item.approved_at).toLocaleDateString('es-ES') : ''
       ];
     case 'vehicle-parts':
       return [
-        item.productName || '',
+        item.product_id?.toString() || '',
+        item.product_name || '',
+        item.total_quantity?.toString() || '0',
         item.model || '',
-        item.quantity?.toString() || '0',
-        item.unit || '',
-        item.frequency?.toString() || '0'
+        item.make || ''
+      ];
+    case 'financial-supplier':
+      return [
+        item.invoice_code || '',
+        item.supplier_name || '',
+        item.supplier_doc || '',
+        `Q${item.paid_amount?.toFixed(2) || '0.00'}`,
+        item.status || '',
+        item.issue_date ? new Date(item.issue_date).toLocaleDateString('es-ES') : '',
+        item.purchase_order_code || ''
+      ];
+    case 'financial-management':
+      return [
+        item.period_type || '',
+        `Q${item.total_income?.toFixed(2) || '0.00'}`,
+        `Q${item.total_expenses?.toFixed(2) || '0.00'}`,
+        `Q${item.net_balance?.toFixed(2) || '0.00'}`
+      ];
+    case 'service-rating':
+      return [
+        item.work_order_code || '',
+        item.customer_name || '',
+        `${item.vehicle_make || ''} ${item.vehicle_model || ''}`.trim(),
+        item.plate || '',
+        item.rating?.toString() || '0',
+        item.customer_comment || '',
+        item.service_date ? new Date(item.service_date).toLocaleDateString('es-ES') : '',
+        item.service_type || '',
+        item.assigned_technicians || '',
+        item.created_by || ''
+      ];
+    case 'client-service-history':
+      return [
+        item.work_order_code || '',
+        item.service_description || '',
+        item.service_type || '',
+        item.service_date ? new Date(item.service_date).toLocaleDateString('es-ES') : '',
+        item.service_status || '',
+        item.total_hours?.toString() || '0',
+        item.vehicle_details || '',
+        // Botón de feedback
+        `<button onclick="window.openFeedbackModal('${item.work_order_code}')" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-2 rounded text-xs">Feedback</button>`
       ];
     default:
       return [];
