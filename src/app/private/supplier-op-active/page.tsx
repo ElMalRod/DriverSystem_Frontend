@@ -121,7 +121,7 @@ export default function SupplierOpProductPage() {
   async function handleCreateProduct(e: React.FormEvent) {
     e.preventDefault()
     try {
-      // console.info('Creating product with data: ', productForm)
+      console.info('Creating product with data: ', productForm)
       await createSupplierProduct(productForm)
       setShowCreateProduct(false)
       await loadProducts(user)
@@ -134,8 +134,8 @@ export default function SupplierOpProductPage() {
     e.preventDefault()
     if (!editingProduct) return
     try {
-      // console.info('Updating product with data: ', productForm)
-      await updateSupplierProduct(Number(user?.id) || 0, Number(editingProduct?.productId), productForm);
+      console.info('Updating product with data: ', productForm)
+      console.info( await updateSupplierProduct(Number(user?.id) || 0, Number(editingProduct?.productId), productForm) )
       setShowEditProduct(false)
       setEditingProduct(null)
       await loadProducts(user)

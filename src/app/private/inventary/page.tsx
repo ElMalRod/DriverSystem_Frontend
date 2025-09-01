@@ -3,9 +3,6 @@
 import { useEffect, useState } from "react"
 import { FaSearch, FaBoxOpen, FaTruck, FaCalendarAlt } from "react-icons/fa"
 import { getSupplierProducts, SupplierProduct } from "@/features/supplier-products/api"
-import { CreateSupplierOrder, postSupplierOrder } from "@/features/supplier-orders/api";
-import { getSessionUser } from "@/utils/session";
-import type { User } from "@/types/auth"
 
 // Declarar Swal como global
 declare global {
@@ -15,27 +12,12 @@ declare global {
 }
 
 export default function SupplierProductsModule() {
-  const [user, setUser] = useState<User | null>(null)
   const [products, setProducts] = useState<SupplierProduct[]>([])
   const [filteredProducts, setFilteredProducts] = useState<SupplierProduct[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
-  const [showStartOrder, setShowStrartOrder] = useState(false)
-  const [orderForm, setOrderForm] = useState<Partial<CreateSupplierOrder>>({
-    code: '',
-    supplierId: 0,
-    status: 'DRAFT',
-    expectedAt: '',
-    currency: 'QTZ',
-    notes: '',
-    items: []
-  })
-
-  const [error, setError] = useState("")
 
   useEffect(() => {
-    const userSession = getSessionUser();
-    setUser(userSession)
     loadProducts()
   }, [])
 
@@ -66,25 +48,6 @@ export default function SupplierProductsModule() {
     }
     setFilteredProducts(filtered)
   }
-
-  function openCreateOrderModal() {
-    setShowStrartOrder(true);
-    setError("");
-  }
-
-
-  async function handleCreateOrder(e: React.FormEvent){
-    e.preventDefault();
-    try {
-      await postSupplierOrder(orderForm);
-      setShowStrartOrder(false);
-    } catch (error: any) {
-      setError(error.message || 'error desconocido create order');
-    }
-  }
-
-
-
 
   return (
     <div className="space-y-6">
