@@ -166,15 +166,6 @@ export default function ReportsPage() {
   const [reportData, setReportData] = useState<(WorkOrderReport | VehicleHistoryReport | SparePartsReport | WorkByMechanicReport | VehiclePartsReport | FinancialSupplierReport | FinancialManagementReport | ServiceRatingReport | ClientServiceHistoryReport)[]>([]);
   const [mechanicUsers, setMechanicUsers] = useState<any[]>([]);
   const [clients, setClients] = useState<any[]>([]);
-  const [feedbackModal, setFeedbackModal] = useState({
-    isOpen: false,
-    workOrderCode: '',
-    workOrderId: 0
-  });
-  const [feedbackData, setFeedbackData] = useState({
-    rating: 5,
-    comment: ''
-  });
   const [filters, setFilters] = useState({
     vehiclePlate: '',
     mechanicId: '',
@@ -249,61 +240,6 @@ export default function ReportsPage() {
       setClients([]);
     }
   };
-
-  // Función para abrir el modal de feedback
-  const openFeedbackModal = (workOrderCode: string) => {
-    // Extraer el ID numérico del código de orden de trabajo
-    const workOrderId = parseInt(workOrderCode.replace('WO-', ''));
-    setFeedbackModal({
-      isOpen: true,
-      workOrderCode,
-      workOrderId
-    });
-    setFeedbackData({
-      rating: 5,
-      comment: ''
-    });
-  };
-
-  // Función para enviar feedback
-  const submitFeedback = async () => {
-    try {
-      const customerId = currentUser?.id;
-      if (!customerId) {
-        alert('No se pudo identificar al usuario actual');
-        return;
-      }
-
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/service/feedback/register`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          work_order_id: feedbackModal.workOrderId,
-          customer_id: customerId,
-          rating: feedbackData.rating,
-          comment: feedbackData.comment
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Error al enviar el feedback');
-      }
-
-      alert('¡Feedback enviado exitosamente!');
-      setFeedbackModal({ isOpen: false, workOrderCode: '', workOrderId: 0 });
-      setFeedbackData({ rating: 5, comment: '' });
-    } catch (error) {
-      console.error('Error submitting feedback:', error);
-      alert('Error al enviar el feedback. Por favor, inténtelo de nuevo.');
-    }
-  };
-
-  // Función global para abrir el modal desde el botón HTML
-  if (typeof window !== 'undefined') {
-    (window as any).openFeedbackModal = openFeedbackModal;
-  }
 
   const reportOptions = [
     {
@@ -1395,63 +1331,6 @@ export default function ReportsPage() {
             )}
           </div>
         )}
-
-        {/* Modal de Feedback */}
-        {feedbackModal.isOpen && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
-              <h3 className="text-lg font-semibold mb-4">Enviar Feedback</h3>
-              <p className="text-sm text-gray-600 mb-4">
-                Orden de Trabajo: {feedbackModal.workOrderCode}
-              </p>
-
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Calificación
-                </label>
-                <select
-                  value={feedbackData.rating}
-                  onChange={(e) => setFeedbackData(prev => ({ ...prev, rating: parseInt(e.target.value) }))}
-                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value={5}>⭐⭐⭐⭐⭐ Excelente</option>
-                  <option value={4}>⭐⭐⭐⭐ Bueno</option>
-                  <option value={3}>⭐⭐⭐ Regular</option>
-                  <option value={2}>⭐⭐ Malo</option>
-                  <option value={1}>⭐ Muy Malo</option>
-                </select>
-              </div>
-
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Comentario
-                </label>
-                <textarea
-                  value={feedbackData.comment}
-                  onChange={(e) => setFeedbackData(prev => ({ ...prev, comment: e.target.value }))}
-                  placeholder="Escribe tu comentario aquí..."
-                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                  rows={4}
-                />
-              </div>
-
-              <div className="flex justify-end space-x-3">
-                <button
-                  onClick={() => setFeedbackModal({ isOpen: false, workOrderCode: '', workOrderId: 0 })}
-                  className="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50"
-                >
-                  Cancelar
-                </button>
-                <button
-                  onClick={submitFeedback}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                >
-                  Enviar Feedback
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
@@ -1477,7 +1356,7 @@ function getTableHeaders(reportType: ReportType): string[] {
     case 'service-rating':
       return ['Código Orden', 'Cliente', 'Vehículo', 'Placa', 'Calificación', 'Comentario', 'Fecha Servicio', 'Tipo Servicio', 'Técnico', 'Creado Por'];
     case 'client-service-history':
-      return ['Código Orden', 'Descripción Servicio', 'Tipo Servicio', 'Fecha Servicio', 'Estado', 'Horas Totales', 'Detalles Vehículo', 'Acciones'];
+      return ['Código Orden', 'Descripción Servicio', 'Tipo Servicio', 'Fecha Servicio', 'Estado', 'Horas Totales', 'Detalles Vehículo'];
     default:
       return [];
   }
@@ -1573,9 +1452,7 @@ function getTableRow(reportType: ReportType, item: any): string[] {
         item.service_date ? new Date(item.service_date).toLocaleDateString('es-ES') : '',
         item.service_status || '',
         item.total_hours?.toString() || '0',
-        item.vehicle_details || '',
-        // Botón de feedback
-        `<button onclick="window.openFeedbackModal('${item.work_order_code}')" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-2 rounded text-xs">Feedback</button>`
+        item.vehicle_details || ''
       ];
     default:
       return [];
