@@ -40,18 +40,26 @@ export default function SupplierOpOrdersPage() {
   useEffect(() => {
     const userSession = getSessionUser();
     setUser(userSession);
-    loadSupplierOrders();
+    loadSupplierOrders(userSession);
   }, []);
 
   useEffect(() => {
     filterOrders()
   }, [searchTerm, supplierOrders])
 
-  async function loadSupplierOrders() {
+  async function loadSupplierOrders(u: User | null) {
     try {
       setLoading(true);
       const data = await getSupplierOrders();
-      setSupplierOrders(Array.isArray(data) ? data : [])
+      
+      console.info('user id: ',u?.id)
+      console.info('order: ',data)
+      
+      const filtered = await Array.isArray(data)
+      ? data.filter(item => item.supplierId == u?.id)
+      : []
+      
+      setSupplierOrders(filtered)
       //console.info('Supplier Orders: ',data)
     } catch (error) {
       console.error('Error of Product categories: ',error)
@@ -62,7 +70,7 @@ export default function SupplierOpOrdersPage() {
   }
   function filterOrders() {
     let filtered = supplierOrders;
-    console.info('Search filterOrders:', filtered, searchTerm);
+    //console.info('Search filterOrders:', filtered, searchTerm);
     if (searchTerm) {
       filtered = filtered.filter(order =>
         order.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -178,13 +186,6 @@ export default function SupplierOpOrdersPage() {
                     title="Editar Orden"
                   >
                     <FaEdit size={14} />
-                  </button>
-                  <button
-                    onClick={() => selectOrderDened()}
-                    className="text-red-600 hover:text-red-800 p-2 rounded hover:bg-red-50"
-                    title="Denegar Orden"
-                  >
-                    <FaTrash size={14} />
                   </button>
                 </td>
                   </tr>
